@@ -1,0 +1,122 @@
+/* extra.css — финальные стили: логотип со звездой, вращающиеся кольца, новая заставка, комната ожидания (карты),
+ * аукцион 2.0, профиль, мультиплеер-окна. Подключается ПОСЛЕ style.css и events.css. */
+@font-face{font-family:"LogoFont";src:url("assets/logo.woff2") format("woff2"),url("assets/logo.ttf") format("truetype");font-display:swap}
+:root{--logo:"LogoFont","Great Vibes","Pinyon Script","Segoe Script","Brush Script MT",cursive}
+
+/* ===== Логотип ===== */
+.logo-top{font-family:var(--logo);font-weight:400;font-size:clamp(4.2rem,9.4vw,9.8rem);line-height:1.02;letter-spacing:0;
+  color:#f6eedd;transform:rotate(-4deg);transform-origin:left bottom;padding-right:.25em;position:relative;
+  text-shadow:0 0 38px rgba(214,176,118,.4),0 8px 40px rgba(0,0,0,.6)}
+.logo-main{font-family:var(--head);font-weight:400;font-size:clamp(1.5rem,3.5vw,3.5rem);letter-spacing:.42em;text-transform:uppercase;
+  margin-top:.1em;padding-left:.3em;background:linear-gradient(180deg,#f5e2b8,#c39b5e 68%,#9c7640);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.center-logo{display:flex;align-items:baseline;gap:1.2cqw;color:#f2e6cf;text-shadow:0 0 22px rgba(214,176,118,.35),0 3px 0 rgba(0,0,0,.35)}
+.center-logo span{font-family:var(--logo);font-size:6cqw;line-height:1;letter-spacing:0;text-transform:none;transform:rotate(-3deg)}
+.center-logo b{font-family:var(--head);font-weight:500;font-size:1.9cqw;letter-spacing:.34em;text-transform:uppercase;color:var(--gold)}
+
+/* золото-бронзовая звезда */
+.gstar{display:block;width:100%;height:100%;overflow:visible;
+  filter:drop-shadow(0 0 8px rgba(226,170,80,.9)) drop-shadow(0 0 18px rgba(200,120,40,.5))}
+.logo-star{position:absolute;right:-.12em;top:-.02em;width:.3em;aspect-ratio:1;pointer-events:none;
+  animation:starFloat 8s ease-in-out infinite}
+.logo-star .gstar{animation:starSpin 6s linear infinite}
+@keyframes starFloat{0%,100%{translate:0 0}25%{translate:.18em -.2em}50%{translate:-.08em -.34em}75%{translate:-.26em -.1em}}
+@keyframes starSpin{to{transform:rotate(360deg)}}
+
+/* ===== Кольца лобби: светящаяся дуга вращается ===== */
+.bg-ring::before{content:"";position:absolute;inset:-1px;border-radius:50%;
+  background:conic-gradient(from 0deg,rgba(228,192,130,.9),rgba(228,192,130,0) 18%,rgba(228,192,130,0) 52%,rgba(228,192,130,.5) 64%,rgba(228,192,130,0) 78%);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 1px));
+          mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 1px));
+  animation:ringSpin 70s linear infinite}
+.bg-ring-b::before{animation-duration:110s;animation-direction:reverse}
+@keyframes ringSpin{to{transform:rotate(360deg)}}
+
+/* ===== Заставка: логотип → звезда ===== */
+#intro-logo{position:absolute;left:50%;top:50%;translate:-50% -50%;text-align:center;display:flex;flex-direction:column;align-items:center;
+  opacity:0;filter:blur(10px);transition:opacity var(--tt,2.6s) ease,filter var(--tt,2.6s) ease}
+#intro-logo.show{opacity:1;filter:blur(0)}
+#intro-logo .logo-top{transform:rotate(-3deg);transform-origin:center}
+#intro-logo .logo-main{padding-left:.4em}
+#intro-logo .logo-rule{width:min(420px,60vw)}
+#intro-star{position:absolute;left:50%;top:50%;width:clamp(54px,5.4vw,84px);translate:-50% -50%;opacity:0;
+  transform:translateY(46px) scale(.55);
+  transition:opacity var(--tt,2.6s) ease,transform var(--tt,2.6s) cubic-bezier(.22,1,.36,1)}
+#intro-star.show{opacity:1;transform:none}
+#intro-star.spin .gstar{animation:starSpin 2.5s linear infinite}
+
+/* ===== Профиль / формы ===== */
+.pf-save{margin-top:1rem}
+.mp-ips{font-size:.74rem;color:var(--dim);margin-top:.4rem;line-height:1.4}
+.pc .unread{margin-left:.3rem;color:var(--gold-hi);font-size:.85rem;animation:unr 1.2s ease-in-out infinite}
+@keyframes unr{50%{opacity:.35}}
+
+/* ===== Комната ожидания ===== */
+.room-wrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.6rem;padding:2rem}
+.room-head{text-align:center}
+.room-title{font-family:var(--head);font-weight:400;font-size:clamp(1.6rem,3vw,2.6rem);letter-spacing:.3em;text-transform:uppercase;color:var(--gold-hi)}
+.room-info{margin-top:.7rem;font-size:.9rem;color:var(--dim);letter-spacing:.04em}
+.room-info b{color:var(--gold-hi)}
+.room-cards{display:flex;gap:1.6rem;justify-content:center;flex-wrap:wrap;min-height:300px;align-items:center}
+.pcard{position:relative;width:clamp(150px,13vw,200px);aspect-ratio:5/7;border-radius:18px;padding:1rem;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.45rem;text-align:center;color:#2a1d0c;
+  border:1px solid transparent;
+  background:linear-gradient(160deg,#faf3e3,#e4d6b6) padding-box,linear-gradient(135deg,#f1d9a0,#a9803f 50%,#f1d9a0) border-box;
+  box-shadow:0 22px 50px rgba(0,0,0,.55),inset 0 0 0 5px rgba(255,255,255,.35);
+  opacity:.82;filter:saturate(.7);transition:opacity .6s var(--smooth),filter .6s var(--smooth),box-shadow .6s var(--smooth),transform .6s var(--smooth);
+  animation:cardIn 1s var(--smooth) backwards;animation-delay:calc(var(--i,0)*.15s)}
+@keyframes cardIn{from{opacity:0;transform:translateY(40px) rotate(-6deg) scale(.9)}}
+.pcard.ready{opacity:1;filter:none;transform:translateY(-8px);box-shadow:0 0 0 2px #3ddc84,0 26px 60px rgba(61,220,132,.28)}
+.pcard.mine .pcard-name{color:#7a4f0e}
+.pc-corner{position:absolute;font-size:1.2rem;color:#9a6a1c}
+.pc-corner.tl{left:.8rem;top:.6rem}.pc-corner.br{right:.8rem;bottom:.6rem;transform:rotate(180deg)}
+.pcard-suit{font-size:2.6rem;color:#a9803f;line-height:1}
+.pcard-name{font-family:var(--head);font-weight:600;font-size:1.15rem;letter-spacing:.06em;word-break:break-word;color:#2a1d0c}
+.pcard-role{font-size:.7rem;letter-spacing:.3em;text-transform:uppercase;color:#8a6a35}
+.pcard-state{margin-top:.3rem;padding:.25rem .8rem;border-radius:99px;font-size:.78rem;font-weight:700;background:rgba(42,29,12,.1);color:#5b4a2a}
+.pcard.ready .pcard-state{background:rgba(61,220,132,.18);color:#0b7a46}
+.room-note{min-height:1.4rem;font-size:.95rem;letter-spacing:.08em;color:var(--gold-hi);text-align:center}
+.room-ready{font-size:1.1rem;padding:.9rem 3.2rem;letter-spacing:.14em;text-transform:uppercase}
+.room-ready.on{background:linear-gradient(180deg,#7fe6a8,#2fae68);color:#06220f}
+.room-leave{position:absolute;left:1.6rem;bottom:1.4rem;font-size:.8rem;padding:.5rem 1.1rem;opacity:.75}
+.room-leave:hover{opacity:1}
+
+/* ===== АУКЦИОН 2.0 ===== */
+.modal.auc2{width:min(1000px,96vw);max-height:92vh;padding:1.6rem 1.8rem;overflow:auto}
+.auc2-title{font-family:var(--head);font-weight:400;font-size:.8rem;letter-spacing:.5em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem}
+.auc2-top{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:1.2rem;align-items:stretch}
+.auc2-lot,.auc2-hist{padding:1rem;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--gold-line);display:flex;flex-direction:column;gap:.6rem}
+.auc2-plate{height:120px;background:#fff;border-radius:16px;display:flex;align-items:center;justify-content:center;padding:12px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.auc2-plate img{max-width:100%;max-height:100%;object-fit:contain}
+.auc2-lotname{font-family:var(--head);font-weight:500;font-size:1.5rem;letter-spacing:.1em;text-transform:uppercase;text-align:center}
+.auc2-meta{display:flex;justify-content:space-between;font-size:.85rem;color:var(--dim);padding-top:.5rem;border-top:1px solid rgba(214,176,118,.15)}
+.auc2-meta b{color:var(--gold-hi)}
+.auc2-center{display:flex;flex-direction:column;align-items:center;gap:1rem;justify-content:center}
+.auc2-ring{position:relative;width:min(190px,42vw);aspect-ratio:1}
+.auc2-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.rg-bg{fill:none;stroke:rgba(214,176,118,.16);stroke-width:7}
+.rg-fg{fill:none;stroke:var(--gold);stroke-width:7;stroke-linecap:round;stroke-dasharray:339.3;stroke-dashoffset:0;
+  filter:drop-shadow(0 0 6px rgba(214,176,118,.7));transition:stroke-dashoffset .25s linear,stroke .4s}
+.rg-fg.hot{stroke:#ff6a5a;filter:drop-shadow(0 0 8px rgba(255,90,70,.8))}
+.auc2-time{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.auc2-time b{font-family:var(--head);font-weight:300;font-size:3.2rem;line-height:1;color:var(--gold-hi)}
+.auc2-time span{margin-top:.3rem;font-size:.66rem;letter-spacing:.22em;text-transform:uppercase;color:var(--dim);max-width:9em}
+.auc2-leader{width:100%;text-align:center;padding:.9rem 1rem;border-radius:18px;background:rgba(214,176,118,.1);border:1px solid var(--gold-line);transition:border-color .4s,box-shadow .4s}
+.auc2-leader.mine{border-color:#3ddc84;box-shadow:0 0 24px rgba(61,220,132,.3)}
+.al-label{font-size:.68rem;letter-spacing:.3em;text-transform:uppercase;color:var(--dim)}
+.al-sum{font-family:var(--head);font-weight:500;font-size:2rem;color:var(--gold-hi);margin:.2rem 0}
+.al-name{font-size:.95rem;letter-spacing:.06em}
+.ah-title{font-family:var(--head);font-size:.72rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold)}
+.ah-list{flex:1;min-height:150px;max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:.3rem;font-size:.85rem;color:var(--dim)}
+.ah-list .top{color:var(--gold-hi);font-weight:700}
+.auc2-bid{margin-top:1.2rem;display:flex;flex-direction:column;gap:.7rem}
+.auc2-quick{display:flex;gap:.5rem;flex-wrap:wrap}
+.auc2-quick .btn{flex:1;min-width:80px;padding:.55rem .8rem;font-size:.85rem}
+.auc2-row{display:flex;gap:.7rem}
+.auc2-row .frm-input{flex:1;font-size:1.1rem}
+.auc2-row .btn.main{padding:.8rem 2rem;font-size:1rem;letter-spacing:.06em}
+.auc2-foot{display:flex;justify-content:space-between;font-size:.85rem;color:var(--dim);min-height:1.2rem}
+.auc2-status{color:#e9a9a0}
+.auc2-note{margin-top:.8rem;text-align:center;font-size:1rem;letter-spacing:.04em;color:var(--gold-hi);min-height:1.2rem}
+#auction.done .rg-fg{stroke:#3ddc84;stroke-dashoffset:339.3!important}
+@media (max-width:860px){.auc2-top{grid-template-columns:1fr}}

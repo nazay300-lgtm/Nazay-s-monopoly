@@ -1,0 +1,328 @@
+/* events.css — сцена ивента.
+ * ВСЁ строится на СЛОЯХ (.sc-layer), которые плавно перетекают друг в друга.
+ * Правило: никаких display:none/block для этапов ивента — только класс .on и opacity-переходы.
+ * Время перехода каждого слоя задаётся переменной --t (её ставит fx.js).
+ * Файл подключается ПОСЛЕ style.css и переопределяет его в нескольких местах (раздел 0).
+ */
+
+/* ===== 0. ПЛАВНОЕ ЗАКРЫТИЕ ВСЕХ ОБЫЧНЫХ ОКОН ===== */
+.overlay{display:flex;visibility:hidden;opacity:0;pointer-events:none;
+  transition:opacity .6s var(--smooth),visibility 0s linear .6s}
+.overlay.show{visibility:visible;opacity:1;pointer-events:auto;
+  transition:opacity .6s var(--smooth),visibility 0s}
+
+/* Окно «Монополия» */
+.mono-card{opacity:1;transform:none;animation:none}
+#mono-fx.show .mono-card{animation:monoCardIn 1.4s var(--smooth) both}
+.mono-text{opacity:1;transform:none;animation:none}
+#mono-fx.show .mono-text{animation:monoTextIn2 1.4s var(--smooth) 1.2s both}
+@keyframes monoTextIn2{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+
+/* ===== 1. СЦЕНА И СЛОИ ===== */
+.scene{position:fixed;inset:0;z-index:70;
+  background:radial-gradient(ellipse at 50% 40%,#1a1a22 0%,#0a0a0e 70%,#000 100%);
+  font-family:"SourceSerif4",Georgia,serif;color:#e8e2d4;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity var(--t,1.4s) cubic-bezier(.4,0,.2,1),visibility 0s linear var(--t,1.4s)}
+.scene.on{opacity:1;visibility:visible;pointer-events:auto;
+  transition:opacity var(--t,1.4s) cubic-bezier(.4,0,.2,1),visibility 0s}
+.scene:not(.on) *{pointer-events:none!important}
+
+.sc-layer{position:absolute;inset:0;opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity var(--t,1.8s) cubic-bezier(.4,0,.2,1),visibility 0s linear var(--t,1.8s)}
+.sc-layer.on{opacity:1;visibility:visible;pointer-events:auto;
+  transition:opacity var(--t,1.8s) cubic-bezier(.4,0,.2,1),visibility 0s}
+.sc-layer.instant,.sc-layer.instant.on{transition:none!important}
+#L-frame,#L-game,#L-result,.sc-sub{display:flex;align-items:center;justify-content:center}
+
+/* ===== 2. РАМКА («Система ивентов») ===== */
+.ev-stage{position:relative;width:min(1200px,94vw);height:min(760px,92vh);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:1.6rem 2rem;color:#e8e2d4;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.02),rgba(0,0,0,.4)),
+    repeating-linear-gradient(0deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
+    repeating-linear-gradient(90deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
+    radial-gradient(ellipse at 50% 50%,#1a1a22 0%,#0a0a0e 80%);
+  border:1px solid rgba(212,162,74,.25);border-radius:6px;
+  box-shadow:0 0 0 1px rgba(212,162,74,.12) inset,0 0 80px rgba(212,162,74,.08) inset,0 30px 80px rgba(0,0,0,.9)}
+.ev-stage::before,.ev-stage::after{content:"";position:absolute;width:60px;height:60px;pointer-events:none;
+  border:2px solid rgba(212,162,74,.5)}
+.ev-stage::before{top:14px;left:14px;border-right:none;border-bottom:none}
+.ev-stage::after{bottom:14px;right:14px;border-left:none;border-top:none}
+.ev-bg{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:6px}
+.ev-gear{position:absolute;color:rgba(212,162,74,.10);width:320px;height:320px;animation:gearSpin 60s linear infinite}
+.ev-gear-tl{top:-100px;left:-100px}
+.ev-gear-br{bottom:-120px;right:-100px;animation-duration:80s;animation-direction:reverse}
+@keyframes gearSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.ev-head{position:relative;z-index:2;text-align:center;margin-bottom:1rem}
+.ev-kicker{font-family:"GameFont","Montserrat",sans-serif;font-size:.75rem;letter-spacing:.5em;
+  color:rgba(212,162,74,.8);text-transform:uppercase;margin-bottom:.5rem}
+.ev-title{font-family:"TitleFont","Anton",sans-serif;font-size:clamp(1.6rem,3.2vw,2.6rem);color:#f0e6d2;
+  letter-spacing:.15em;text-transform:uppercase;text-shadow:0 0 30px rgba(212,162,74,.45)}
+.ev-line{width:min(320px,55%);height:1px;margin:.8rem auto 0;
+  background:linear-gradient(90deg,transparent,#d4a24a,transparent);position:relative}
+.ev-line::before,.ev-line::after{content:"◆";position:absolute;top:-8px;color:#d4a24a;font-size:.6rem}
+.ev-line::before{left:-12px}
+.ev-line::after{right:-12px}
+.ev-sub{position:relative;z-index:2;margin-top:.6rem;min-height:1.4rem;
+  font-family:"GameFont","Montserrat",sans-serif;font-size:.9rem;letter-spacing:.25em;
+  color:rgba(232,226,212,.75);text-transform:uppercase;transition:opacity .8s ease}
+.sc-slot{position:relative;z-index:2;flex:1;width:100%;min-height:0}
+
+/* ===== 3. СТОЛ ===== */
+#L-table{display:flex;align-items:center;justify-content:center}
+.ev-table-area{position:relative;width:min(380px,46vh,70vw);aspect-ratio:1;
+  display:flex;align-items:center;justify-content:center}
+.ev-table{position:relative;width:100%;height:100%;border-radius:50%;
+  background:
+    radial-gradient(circle at 50% 50%,rgba(212,162,74,.14) 0%,rgba(212,162,74,.04) 45%,transparent 70%),
+    radial-gradient(circle at 50% 50%,#0e0e12 0%,#05050a 100%);
+  border:1px solid rgba(212,162,74,.4);
+  box-shadow:0 0 0 8px rgba(212,162,74,.05),0 0 0 16px rgba(212,162,74,.03),
+    0 0 80px rgba(212,162,74,.15) inset,0 30px 70px rgba(0,0,0,.8)}
+.ev-table::before{content:"";position:absolute;inset:14%;border-radius:50%;border:1px dashed rgba(212,162,74,.2)}
+.ev-table::after{content:"";position:absolute;inset:32%;border-radius:50%;border:1px solid rgba(212,162,74,.15)}
+.ev-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;color:#0e0e12;font-size:1.4rem;z-index:3;
+  background:radial-gradient(circle at 35% 30%,#ffe98a,#d4a24a 60%,#8a6320);
+  box-shadow:0 0 30px rgba(212,162,74,.7),inset 0 0 20px rgba(255,255,255,.35);
+  transition:opacity 1.6s ease}
+.ev-center.hidden{opacity:0}
+
+.ev-test-screen{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.88);
+  width:86%;min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:.9rem;padding:1.2rem;z-index:5;opacity:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(26,26,34,.98),rgba(10,10,14,.98));
+  border:1px solid rgba(212,162,74,.5);border-radius:8px;
+  box-shadow:0 0 0 1px rgba(212,162,74,.2) inset,0 0 60px rgba(212,162,74,.2),0 20px 60px rgba(0,0,0,.9);
+  transition:opacity 1.4s cubic-bezier(.4,0,.2,1),transform 1.4s cubic-bezier(.4,0,.2,1)}
+.ev-test-screen.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.ev-test-label{font-family:"GameFont","Montserrat",sans-serif;font-size:.7rem;letter-spacing:.4em;
+  color:rgba(212,162,74,.85);text-transform:uppercase;text-align:center}
+.ev-flip{position:relative;width:100%;height:60px;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;perspective:600px}
+.ev-flip::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(212,162,74,.5),transparent)}
+.ev-flip-line{font-family:"TitleFont","Anton",sans-serif;font-size:clamp(1.1rem,2vw,1.7rem);
+  letter-spacing:.12em;text-transform:uppercase;text-align:center;color:#f0e6d2;
+  text-shadow:0 0 20px rgba(212,162,74,.7)}
+.ev-flip-line.tick{animation:evTick .18s ease-out}
+@keyframes evTick{from{transform:rotateX(70deg);opacity:.25}to{transform:rotateX(0);opacity:1}}
+.ev-flip-line.final{color:#d4a24a;text-shadow:0 0 30px rgba(212,162,74,1),0 0 60px rgba(212,162,74,.8);
+  animation:flipFinal 1.2s cubic-bezier(.22,1,.36,1)}
+@keyframes flipFinal{0%{transform:scale(1)}35%{transform:scale(1.15)}100%{transform:scale(1)}}
+
+.ev-arrows{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;overflow:visible;
+  opacity:0;transition:opacity 2.4s cubic-bezier(.22,1,.36,1)}
+.ev-arrows.show{opacity:1}
+
+.ev-seats{position:absolute;left:50%;top:50%;width:0;height:0;z-index:4;pointer-events:none;overflow:visible}
+.ev-seat{position:absolute;left:0;top:0;width:84px;height:84px;margin-left:-42px;margin-top:-42px;
+  will-change:transform;opacity:0;transition:opacity 1.6s cubic-bezier(.22,1,.36,1)}
+.ev-seat.show{opacity:1}
+.ev-chip{position:relative;width:var(--sz,84px);height:var(--sz,84px);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:calc(var(--sz,84px)*.42);color:#fff;
+  font-family:"Segoe UI Symbol","Noto Sans Symbols 2",sans-serif;
+  background:repeating-conic-gradient(from 0deg,#fff 0 12deg,var(--c) 12deg 30deg);
+  box-shadow:0 4px 0 rgba(0,0,0,.5),0 0 22px var(--c),0 0 0 2px rgba(255,255,255,.65)}
+.ev-seat .ev-chip{width:100%;height:100%;font-size:1.9rem}
+.ev-chip::before{content:"";position:absolute;inset:16%;border-radius:50%;
+  background:radial-gradient(circle at 35% 28%,color-mix(in srgb,var(--c) 40%,#fff) 0,var(--c) 55%,color-mix(in srgb,var(--c) 60%,#000) 100%);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.85)}
+.ev-chip .ev-e{position:relative;z-index:2;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.ev-seat .ev-name{position:absolute;left:50%;bottom:-22px;transform:translateX(-50%);
+  font-family:"TitleFont","Anton",sans-serif;font-size:.7rem;letter-spacing:.14em;color:#e8e2d4;
+  text-transform:uppercase;white-space:nowrap;text-shadow:0 0 10px rgba(0,0,0,.95)}
+.ev-seat .ev-marker{position:absolute;left:50%;top:-22px;transform:translateX(-50%);width:0;height:0;
+  border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:12px solid #d43030;
+  filter:drop-shadow(0 0 10px rgba(212,48,48,.95));opacity:0;transition:opacity .8s cubic-bezier(.22,1,.36,1)}
+.ev-seat.picked .ev-marker{opacity:1}
+.ev-seat.picked .ev-chip{box-shadow:0 4px 0 rgba(0,0,0,.5),0 0 40px #d43030,0 0 0 3px #d43030;
+  animation:seatPulse 1.6s cubic-bezier(.22,1,.36,1) infinite alternate}
+@keyframes seatPulse{from{transform:scale(1)}to{transform:scale(1.06)}}
+
+/* ===== 4. ЧЁРНАЯ ЗАВЕСА ===== */
+.sc-veil{background:#000;z-index:6;display:flex;align-items:center;justify-content:center;border-radius:6px}
+.dim-text{font-family:"TitleFont","Anton",sans-serif;font-size:clamp(1.5rem,3vw,2.6rem);
+  letter-spacing:.4em;text-transform:uppercase;color:#d4a24a;text-shadow:0 0 40px rgba(212,162,74,.9);
+  text-align:center;opacity:0;transform:scale(.92);
+  transition:opacity 1.4s cubic-bezier(.22,1,.36,1),transform 1.4s cubic-bezier(.22,1,.36,1)}
+.dim-text.on{opacity:1;transform:scale(1)}
+
+/* ===== 5. ЖЕРЕБЬЁВКА ===== */
+#L-draw{display:flex;align-items:center;justify-content:center}
+.draw-box{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1.1rem;text-align:center;padding:0 1rem}
+.draw-kicker{font-family:"GameFont","Montserrat",sans-serif;font-size:.75rem;letter-spacing:.5em;
+  color:rgba(212,162,74,.85);text-transform:uppercase}
+.draw-players{display:flex;gap:2.4rem;align-items:center;justify-content:center;flex-wrap:wrap}
+.draw-p{display:flex;flex-direction:column;align-items:center;gap:.8rem}
+.draw-p .nm{font-family:"TitleFont","Anton",sans-serif;letter-spacing:.14em;text-transform:uppercase;font-size:1.15rem}
+.draw-vs{font-family:"TitleFont","Anton",sans-serif;color:#d4a24a;letter-spacing:.3em;font-size:1.6rem;
+  text-shadow:0 0 20px rgba(212,162,74,.7);margin-bottom:1.6rem}
+.draw-test{font-family:"TitleFont","Anton",sans-serif;font-size:clamp(1.7rem,3.2vw,2.8rem);
+  letter-spacing:.14em;text-transform:uppercase;color:#d4a24a;text-shadow:0 0 30px rgba(212,162,74,.8);margin-top:.6rem}
+.draw-desc{max-width:640px;line-height:1.7;color:rgba(232,226,212,.8);font-size:1rem}
+
+/* ===== 6. САМИ ИВЕНТЫ ===== */
+@keyframes evIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ---- Дуэль ---- */
+.duel-stage{position:relative;width:min(1200px,94vw);height:min(760px,92vh);padding:1.6rem;
+  display:flex;flex-direction:column;gap:1rem;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.02),rgba(0,0,0,.5)),
+    repeating-linear-gradient(0deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
+    repeating-linear-gradient(90deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
+    radial-gradient(ellipse at 50% 50%,#1a1a22 0%,#0a0a0e 80%);
+  border:1px solid rgba(212,162,74,.25);border-radius:6px;
+  box-shadow:0 0 0 1px rgba(212,162,74,.1) inset,0 30px 80px rgba(0,0,0,.9);color:#e8e2d4}
+.duel-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:0 .4rem;
+  font-family:"TitleFont","Anton",sans-serif;letter-spacing:.15em;text-transform:uppercase;font-size:1.1rem}
+.duel-p{display:flex;align-items:center;gap:.7rem;flex:1;min-width:0}
+.duel-p:last-child{justify-content:flex-end}
+.duel-p .duel-dot{width:14px;height:14px;border-radius:50%;box-shadow:0 0 12px currentColor;flex:none}
+.duel-name{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;max-width:180px}
+/* Старое поле с сердцами (сохранено на случай совместимости) */
+.duel-hp{color:#d43030;letter-spacing:.25em;font-size:1.1rem}
+/* Шкала здоровья: одна длинная полоса с заливкой в цвет игрока */
+.duel-hp-bar{flex:1;min-width:140px;max-width:300px;height:16px;border-radius:10px;position:relative;
+  background:linear-gradient(180deg,rgba(0,0,0,.75),rgba(0,0,0,.55));
+  border:1px solid rgba(212,162,74,.45);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.7),0 0 0 1px rgba(0,0,0,.35);
+  overflow:hidden}
+.duel-hp-fill{height:100%;width:100%;border-radius:9px;
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--c,#d43030) 80%,#fff),
+    var(--c,#d43030) 55%,
+    color-mix(in srgb,var(--c,#d43030) 70%,#000));
+  box-shadow:0 0 14px var(--c,#d43030),inset 0 1px 0 rgba(255,255,255,.4);
+  transition:width .35s cubic-bezier(.22,1,.36,1)}
+.duel-hp-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:"GameFont","Montserrat",sans-serif;font-size:.7rem;font-weight:700;letter-spacing:.1em;
+  color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.9);pointer-events:none}
+/* Хит-маркер: вспышка + крестик */
+.duel-hit-flash{position:absolute;inset:0;background:#ff2a2a;opacity:0;pointer-events:none;z-index:8;
+  transition:opacity .12s ease}
+.duel-hit-flash.on{opacity:.35}
+.duel-hit-cross{position:absolute;width:44px;height:44px;pointer-events:none;z-index:9;
+  transform:translate(-50%,-50%);opacity:0;transition:opacity .4s ease}
+.duel-hit-cross.on{opacity:1;animation:hitCross .4s cubic-bezier(.22,1,.36,1)}
+.duel-hit-cross::before,.duel-hit-cross::after{content:"";position:absolute;left:50%;top:50%;
+  background:#ff3b3b;box-shadow:0 0 10px #ff3b3b}
+.duel-hit-cross::before{width:36px;height:4px;transform:translate(-50%,-50%) rotate(45deg)}
+.duel-hit-cross::after{width:36px;height:4px;transform:translate(-50%,-50%) rotate(-45deg)}
+@keyframes hitCross{0%{transform:translate(-50%,-50%) scale(.5)}60%{transform:translate(-50%,-50%) scale(1.15)}100%{transform:translate(-50%,-50%) scale(1)}}
+
+#duel-canvas{flex:1;width:100%;min-height:0;border:1px solid rgba(212,162,74,.4);border-radius:4px;
+  background:linear-gradient(180deg,#0d0d14 0%,#151522 100%);box-shadow:inset 0 0 60px rgba(0,0,0,.9);cursor:crosshair}
+.duel-hint{text-align:center;font-family:"GameFont","Montserrat",sans-serif;font-size:.8rem;
+  letter-spacing:.3em;color:rgba(212,162,74,.7);text-transform:uppercase}
+
+/* ---- Украсть или разделить ---- */
+.steal-stage{position:relative;width:min(680px,94vw);padding:2.4rem;text-align:center;color:#e8e2d4;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
+    repeating-linear-gradient(90deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
+    radial-gradient(ellipse at 50% 50%,#1a1a22 0%,#0a0a0e 80%);
+  border:1px solid rgba(212,162,74,.4);border-radius:6px;
+  box-shadow:0 0 0 1px rgba(212,162,74,.15) inset,0 30px 80px rgba(0,0,0,.9)}
+.steal-kicker{font-family:"GameFont","Montserrat",sans-serif;font-size:.75rem;letter-spacing:.5em;
+  color:rgba(212,162,74,.8);text-transform:uppercase;margin-bottom:.8rem}
+.steal-title{font-family:"TitleFont","Anton",sans-serif;font-size:clamp(1.4rem,2.4vw,2rem);letter-spacing:.12em;
+  text-transform:uppercase;color:#f0e6d2;margin-bottom:1rem;text-shadow:0 0 25px rgba(212,162,74,.45)}
+.steal-pair{display:flex;gap:1rem;justify-content:center;align-items:center;margin-bottom:1.6rem;
+  font-family:"TitleFont","Anton",sans-serif;letter-spacing:.12em;text-transform:uppercase;font-size:1.1rem}
+.steal-pair i{font-style:normal;color:#d4a24a}
+.steal-actions{display:flex;gap:1.2rem;justify-content:center;animation:evIn .8s cubic-bezier(.22,1,.36,1)}
+.steal-actions .btn{font-family:"TitleFont","Anton",sans-serif;font-size:1.05rem;letter-spacing:.2em;
+  text-transform:uppercase;padding:1.1rem 2.2rem;background:rgba(212,162,74,.08);
+  border:1px solid rgba(212,162,74,.6);color:#e8e2d4;border-radius:4px;cursor:pointer;
+  transition:all .5s cubic-bezier(.22,1,.36,1)}
+.steal-actions .btn:hover{background:rgba(212,162,74,.2);transform:translateY(-2px);box-shadow:0 0 30px rgba(212,162,74,.35)}
+.steal-actions .btn.main{background:linear-gradient(135deg,#ffe98a,#d4a24a);color:#0e0e12;border:none}
+.steal-wait{margin-top:1.6rem;font-family:"GameFont","Montserrat",sans-serif;letter-spacing:.3em;
+  color:rgba(212,162,74,.9);text-transform:uppercase;font-size:.85rem;animation:evIn .8s cubic-bezier(.22,1,.36,1)}
+.steal-timer{font-family:"TitleFont","Anton",sans-serif;font-size:4rem;color:#d4a24a;margin-top:.6rem;
+  text-shadow:0 0 30px rgba(212,162,74,.8)}
+.steal-result{margin-top:1.6rem;font-size:1.05rem;line-height:1.9;animation:evIn .9s cubic-bezier(.22,1,.36,1)}
+.steal-result .sr-choices{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.4rem 0}
+.steal-result .sr-card{padding:1rem;border:1px solid rgba(212,162,74,.35);border-radius:4px;background:rgba(212,162,74,.05)}
+.steal-result .sr-card .sr-name{font-family:"TitleFont","Anton",sans-serif;letter-spacing:.12em;font-size:.95rem;
+  text-transform:uppercase;margin-bottom:.4rem}
+.steal-result .sr-card .sr-choice{font-size:1.4rem}
+.steal-result .sr-card.stole .sr-choice{color:#d43030}
+.steal-result .sr-card.shared .sr-choice{color:#3ddc84}
+
+/* ---- Предатель ---- */
+.traitor-stage{position:relative;width:min(1000px,94vw);padding:2rem;text-align:center;color:#e8e2d4;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
+    repeating-linear-gradient(90deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
+    radial-gradient(ellipse at 50% 50%,#1a1a22 0%,#0a0a0e 80%);
+  border:1px solid rgba(212,162,74,.4);border-radius:6px;
+  box-shadow:0 0 0 1px rgba(212,162,74,.15) inset,0 30px 80px rgba(0,0,0,.9)}
+.traitor-kicker{font-family:"GameFont","Montserrat",sans-serif;font-size:.75rem;letter-spacing:.5em;
+  color:rgba(212,162,74,.8);text-transform:uppercase;margin-bottom:.6rem}
+.traitor-title{font-family:"TitleFont","Anton",sans-serif;font-size:clamp(1.4rem,2.2vw,1.9rem);letter-spacing:.12em;
+  text-transform:uppercase;color:#f0e6d2;margin-bottom:1.8rem}
+.traitor-list{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
+.traitor-card{padding:1.2rem 1.4rem;min-width:180px;cursor:pointer;border-radius:4px;
+  background:rgba(212,162,74,.04);border:1px solid rgba(212,162,74,.3);
+  transition:all .5s cubic-bezier(.22,1,.36,1);animation:evIn .8s cubic-bezier(.22,1,.36,1)}
+.traitor-card:hover{transform:translateY(-4px);border-color:#d4a24a;box-shadow:0 0 30px rgba(212,162,74,.35)}
+.traitor-card .tc-name{font-family:"TitleFont","Anton",sans-serif;font-size:1.2rem;letter-spacing:.12em;
+  text-transform:uppercase;margin-bottom:.6rem}
+.traitor-card .tc-info{font-size:.85rem;color:rgba(232,226,212,.7);line-height:1.7}
+.traitor-card .tc-info b{color:#d4a24a}
+.traitor-result{margin-top:1.8rem;font-family:"TitleFont","Anton",sans-serif;font-size:1.2rem;
+  letter-spacing:.1em;color:#d4a24a;text-transform:uppercase;animation:evIn .9s cubic-bezier(.22,1,.36,1)}
+
+/* ===== 7. ИТОГ ===== */
+.result-stage{position:relative;width:min(760px,94vw);padding:2.6rem;text-align:center;color:#e8e2d4;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
+    repeating-linear-gradient(90deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
+    radial-gradient(ellipse at 50% 50%,#1a1a22 0%,#0a0a0e 80%);
+  border:1px solid rgba(212,162,74,.5);border-radius:6px;
+  box-shadow:0 0 0 1px rgba(212,162,74,.2) inset,0 0 80px rgba(212,162,74,.2),0 30px 80px rgba(0,0,0,.9)}
+.result-stage::before{content:"";position:absolute;top:12px;left:12px;width:40px;height:40px;
+  border:2px solid rgba(212,162,74,.6);border-right:none;border-bottom:none}
+.result-stage::after{content:"";position:absolute;bottom:12px;right:12px;width:40px;height:40px;
+  border:2px solid rgba(212,162,74,.6);border-left:none;border-top:none}
+.result-kicker{font-family:"GameFont","Montserrat",sans-serif;font-size:.75rem;letter-spacing:.5em;
+  color:rgba(212,162,74,.8);text-transform:uppercase;margin-bottom:.6rem}
+.result-title{font-family:"TitleFont","Anton",sans-serif;font-size:clamp(1.6rem,2.8vw,2.4rem);letter-spacing:.14em;
+  text-transform:uppercase;color:#f0e6d2;margin-bottom:1.6rem;text-shadow:0 0 30px rgba(212,162,74,.55)}
+.result-body{font-size:1.1rem;line-height:2}
+.result-body .res-row{display:flex;justify-content:space-between;gap:1.5rem;padding:.7rem 1rem;
+  border-bottom:1px solid rgba(212,162,74,.15);text-align:left}
+.result-body .res-row:last-child{border:none}
+.result-body .res-row .lbl{color:rgba(232,226,212,.7);font-family:"GameFont","Montserrat",sans-serif;
+  letter-spacing:.1em;text-transform:uppercase;font-size:.8rem;align-self:center}
+.result-body .res-row .val{font-family:"TitleFont","Anton",sans-serif;letter-spacing:.08em;font-size:1.1rem;text-align:right}
+.result-body .res-win{color:#3ddc84}
+.result-body .res-lose{color:#d43030}
+.result-body .res-gold{color:#d4a24a}
+
+/* ===== 8. ЗВЕЗДА И ВСПЫШКА ===== */
+#L-star{z-index:50}
+.sc-star{position:absolute;left:50%;top:50%;color:#fff;font-size:clamp(34px,4.4vw,64px);line-height:1;opacity:0;
+  filter:drop-shadow(0 0 20px #fff) drop-shadow(0 0 40px rgba(255,255,255,.8));
+  transform:translate(-50%,-50%) scale(.5);will-change:transform,opacity}
+.sc-star.fly{animation:scFly 3s cubic-bezier(.22,1,.36,1) forwards}
+@keyframes scFly{
+  0%{opacity:0;transform:translate(calc(-50% - 62vw),calc(-50% - 62vh)) scale(.5) rotate(-360deg)}
+  15%{opacity:1}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(.9) rotate(720deg)}}
+.sc-star.grow{animation:scGrow 2.6s cubic-bezier(.65,0,.35,1) forwards}
+@keyframes scGrow{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(.9) rotate(720deg)}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(45) rotate(900deg)}}
+.sc-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;
+  transition:opacity var(--t,1.4s) cubic-bezier(.4,0,.2,1)}
+.sc-flash.on{opacity:1}
+
+@media (prefers-reduced-motion:reduce){.ev-gear{animation:none}}

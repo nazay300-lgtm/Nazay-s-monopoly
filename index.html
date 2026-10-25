@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nazay's Monopoly</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="events.css">
+<link rel="stylesheet" href="extra.css">
+</head>
+<body>
+<div id="app">
+
+  <div id="intro">
+    <div id="intro-logo">
+      <div class="logo-top">Nazay's</div>
+      <div class="logo-main">Monopoly</div>
+      <div class="logo-rule"><i></i><b></b></div>
+    </div>
+    <div id="intro-star"><svg class="gstar" viewBox="0 0 100 100"><use href="#gstar" width="100" height="100"/></svg></div>
+  </div>
+
+  <section class="screen active fade-in" id="lobby" inert>
+    <div class="lobby-card">
+      <i class="bg-ring bg-ring-a reveal" style="--d:.2s"></i>
+      <i class="bg-ring bg-ring-b reveal" style="--d:.6s"></i>
+      <img class="statue reveal" style="--d:.9s" src="img/statue.png" alt="" onerror="this.remove()">
+      <div class="brand reveal" style="--d:.5s">Nazay's Monopoly</div>
+
+      <nav class="menu">
+        <button class="btn menu-btn reveal" style="--d:1.0s" id="b-friends">Режим с друзьями</button>
+        <button class="btn menu-btn reveal" style="--d:1.25s" id="b-single">Одиночный режим</button>
+        <button class="btn menu-btn reveal" style="--d:1.5s" id="b-settings">Настройки</button>
+      </nav>
+
+      <div class="logo reveal" style="--d:1.1s">
+        <div class="logo-top">Nazay's<span class="logo-star"><svg class="gstar" viewBox="0 0 100 100"><use href="#gstar" width="100" height="100"/></svg></span></div>
+        <div class="logo-main">Monopoly</div>
+        <div class="logo-rule"><i></i><b></b></div>
+        <div class="logo-sub">Монополия на четверых</div>
+      </div>
+
+      <div class="lobby-corner reveal" style="--d:1.8s">
+        <button class="btn" id="b-about">Об игре</button>
+        <button class="btn" id="b-exit">Выход</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="friends">
+    <div class="center-box panel">
+      <h2>Режим с друзьями</h2>
+      <button class="btn" id="b-create">Создать комнату</button>
+      <button class="btn" id="b-join">Подключиться к комнате</button>
+      <button class="btn" id="b-friends-back">Назад</button>
+    </div>
+  </section>
+
+  <section class="screen" id="room">
+    <div class="room-wrap">
+      <div class="room-head">
+        <div class="room-title">Комната ожидания</div>
+        <div class="room-info" id="room-info"></div>
+      </div>
+      <div class="room-cards" id="room-cards"></div>
+      <div class="room-note" id="room-note"></div>
+      <div class="room-actions"><button class="btn main room-ready" id="room-ready">Готов</button></div>
+      <button class="btn room-leave" id="room-leave">Покинуть комнату</button>
+    </div>
+  </section>
+
+  <section class="screen" id="game">
+    <aside class="log">
+      <div class="log-head"><span>Лог игры</span><span class="pill" id="turn-pill">Ход 1</span></div>
+      <div class="log-body" id="log"></div>
+    </aside>
+
+    <div class="board" id="board">
+      <div class="center">
+        <div class="center-logo"><span>Nazay's</span> <b>Monopoly</b></div>
+        <div class="dice" id="dice"></div>
+        <div class="sum" id="sum"></div>
+        <div class="wait" id="wait"><div class="fill" id="fill"></div></div>
+        <button class="btn main" id="b-roll">Бросить кубики</button>
+      </div>
+      <div class="track" id="track"></div>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <aside class="players">
+      <div id="players"></div>
+      <button class="btn exit" id="b-game-exit">Выйти</button>
+    </aside>
+  </section>
+
+  <div class="overlay" id="settings">
+    <div class="modal fixed">
+      <button class="btn x" data-close="settings" aria-label="Закрыть">✕</button>
+      <div class="tabs">
+        <button class="btn tab on" data-t="sound">Звук</button>
+        <button class="btn tab" data-t="profile">Профиль</button>
+        <button class="btn tab" data-t="dev">DEV</button>
+      </div>
+      <div class="pane on" data-p="sound">
+        <label class="chk"><input type="checkbox" id="m-music"> Отключить музыку</label>
+        <label class="chk"><input type="checkbox" id="m-sfx"> Отключить эффекты</label>
+        <label class="chk"><input type="checkbox" id="m-all"> Отключить все звуки</label>
+        <label class="slider">Громкость музыки <input type="range" id="v-music" min="0" max="100"></label>
+        <label class="slider">Громкость эффектов <input type="range" id="v-sfx" min="0" max="100"></label>
+      </div>
+      <div class="pane" data-p="profile">
+        <p class="dim">Этот никнейм увидят другие игроки в комнате и в игре.</p>
+        <label class="frm-label">Никнейм</label>
+        <input class="frm-input" id="pf-name" maxlength="16" placeholder="Например, Nazay" autocomplete="off">
+        <button class="btn main pf-save" id="pf-save">Сохранить</button>
+        <p class="err" id="pf-msg"></p>
+      </div>
+      <div class="pane" data-p="dev">
+        <p class="dim">Введите пароль, чтобы запустить одиночный режим с DEV-панелью (в игре — клавиша Shift).</p>
+        <input type="password" id="dev-pass" placeholder="Пароль">
+        <button class="btn" id="dev-go">Войти</button>
+        <p class="err" id="dev-err"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="about">
+    <div class="modal wide">
+      <button class="btn x" data-close="about" aria-label="Закрыть">✕</button>
+      <div class="tabs">
+        <button class="btn tab on" data-t="upd">Обновления</button>
+        <button class="btn tab" data-t="dev">Разработчик</button>
+      </div>
+      <!-- СПИСОК ОБНОВЛЕНИЙ СЛЕВА И ОПИСАНИЕ СПРАВА -->
+      <div class="pane on split" data-p="upd">
+        <aside class="side" id="upd-list">
+          <div class="upd-item active" data-v="1.2">v1.2 beta</div>
+          <div class="upd-item" data-v="1.1">v1.1 beta</div>
+          <div class="upd-item" data-v="1.0">v1.0.0</div>
+        </aside>
+        <div class="content" id="upd-content">
+          <h3>Version 1.2 beta</h3>
+          <p class="dim">Что нового:</p>
+          <ul class="upd-ul dim">
+            <li>Исправлен баг рассинхрона хоста и игроков, при котором из ивента выходил только хост.</li>
+            <li>Добавлена оптимизация подключения: автопереподключение и устойчивость к разрывам связи.</li>
+            <li>Исправлен баг с бесконечной стрельбой в дуэли (спам шаров).</li>
+            <li>Улучшена стабильность сетевого соединения.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="pane" data-p="dev">
+        <p class="content">deepseek, claude и Nazay представляют Nazay's monopoly. Игра очень упорно разрабатывалась, и было потрачено много сил на ее создание, поэтому буду рад если оставите обратную связь по нескольким направлениям: баги, пожелания, критика. Писать: nazay300@gmail.com<br><br>приятно провести время!</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="confirm">
+    <div class="modal small">
+      <h3 id="cf-title">Подтверждение</h3>
+      <p class="dim" id="cf-desc"></p>
+      <div class="buy-actions">
+        <button class="btn main" id="cf-yes">Да</button>
+        <button class="btn" id="cf-no">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="mp-create">
+    <div class="modal small">
+      <h3>Создать комнату</h3>
+      <p class="dim">Включите Radmin VPN и убедитесь, что друзья в вашей сети. Введите свой IP из Radmin и придумайте пароль.</p>
+      <label class="frm-label">Ваш IP (Radmin VPN)</label>
+      <input class="frm-input" id="mp-ip" placeholder="26.xxx.xxx.xxx" autocomplete="off">
+      <div class="mp-ips" id="mp-ips"></div>
+      <label class="frm-label">Пароль комнаты</label>
+      <input class="frm-input" id="mp-pw" placeholder="Придумайте пароль" autocomplete="off">
+      <div class="buy-actions">
+        <button class="btn main" id="mp-go">Создать</button>
+        <button class="btn" id="mp-cancel">Отмена</button>
+      </div>
+      <p class="err" id="mp-err"></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="mp-join">
+    <div class="modal small">
+      <h3>Подключиться</h3>
+      <p class="dim">Введите IP хоста (его адрес в Radmin VPN) и пароль комнаты.</p>
+      <label class="frm-label">IP хоста</label>
+      <input class="frm-input" id="mj-ip" placeholder="26.xxx.xxx.xxx" autocomplete="off">
+      <label class="frm-label">Пароль</label>
+      <input class="frm-input" id="mj-pw" placeholder="Пароль комнаты" autocomplete="off">
+      <div class="buy-actions">
+        <button class="btn main" id="mj-go">Подключиться</button>
+        <button class="btn" id="mj-cancel">Отмена</button>
+      </div>
+      <p class="err" id="mj-err"></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="buy">
+    <div class="modal small">
+      <h3 id="buy-title">Бизнес</h3>
+      <p class="dim" id="buy-desc"></p>
+      <div class="buy-actions">
+        <button class="btn main" id="buy-yes">Купить</button>
+        <button class="btn" id="buy-auction">Аукцион</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="jail">
+    <div class="modal small">
+      <h3>Тюрьма</h3>
+      <p class="dim" id="jail-desc"></p>
+      <div class="buy-actions">
+        <button class="btn main" id="jail-pay">Заплатить</button>
+        <button class="btn" id="jail-roll">Бросить кубики</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="biz">
+    <div class="modal small">
+      <h3 id="biz-title">Бизнес</h3>
+      <p class="dim" id="biz-desc"></p>
+      <div class="buy-actions">
+        <button class="btn main" id="biz-upgrade">Улучшить</button>
+        <button class="btn" id="biz-downgrade">Снять звезду</button>
+        <button class="btn" id="biz-auction">Выставить на аукцион</button>
+        <button class="btn" id="biz-close">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="loan">
+    <div class="modal small">
+      <h3>Кредит</h3>
+      <p class="dim">Взять 500 €, вернуть 750 € через 10 ходов. Если не сможете погасить — банкрот.</p>
+      <div class="buy-actions">
+        <button class="btn main" id="loan-yes">Взять кредит</button>
+        <button class="btn" id="loan-no">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="auction">
+    <div class="modal auc2">
+      <button class="btn x" data-close="auction" aria-label="Закрыть">✕</button>
+      <div class="auc2-title">Аукцион</div>
+      <div class="auc2-top">
+        <div class="auc2-lot">
+          <div class="auc2-plate"><img id="auc-img" src="" alt=""></div>
+          <div class="auc2-lotname" id="auc-name">—</div>
+          <div class="auc2-meta"><span>Стартовая цена</span><b id="auc-start">0 €</b></div>
+          <div class="auc2-meta"><span>Продавец</span><b id="auc-seller">Банк</b></div>
+        </div>
+        <div class="auc2-center">
+          <div class="auc2-ring">
+            <svg viewBox="0 0 120 120"><circle class="rg-bg" cx="60" cy="60" r="54"/><circle class="rg-fg" id="auc-ring" cx="60" cy="60" r="54"/></svg>
+            <div class="auc2-time"><b id="auc-time">20</b><span id="auc-phase">Ожидание участников</span></div>
+          </div>
+          <div class="auc2-leader" id="auc-leader">
+            <div class="al-label">Лидирующая ставка</div>
+            <div class="al-sum" id="auc-leader-sum">— €</div>
+            <div class="al-name" id="auc-leader-name">Ставок пока нет</div>
+          </div>
+        </div>
+        <div class="auc2-hist">
+          <div class="ah-title">Ход торгов</div>
+          <div class="ah-list" id="auc-history"></div>
+        </div>
+      </div>
+      <div class="auc2-bid" id="auc-actions">
+        <div class="auc2-quick" id="auc-quick">
+          <button class="btn" data-q="0">Минимум</button>
+          <button class="btn" data-q="50">+50</button>
+          <button class="btn" data-q="100">+100</button>
+          <button class="btn" data-q="250">+250</button>
+        </div>
+        <div class="auc2-row">
+          <input class="frm-input" type="number" id="auc-input" min="0" step="25" placeholder="Ваша ставка">
+          <button class="btn main" id="auc-bid">Сделать ставку</button>
+        </div>
+        <div class="auc2-foot"><span id="auc-balance"></span><span class="auc2-status" id="auc-status"></span></div>
+      </div>
+      <div class="auc2-note" id="auc-note"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="interact">
+    <div class="modal small">
+      <h3 id="interact-title">Игрок</h3>
+      <p class="dim" id="interact-desc"></p>
+      <div class="buy-actions interact-actions">
+        <button class="btn main" id="ia-msg">Открыть чат</button>
+        <button class="btn" id="ia-close">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="chat">
+    <div class="modal chat-modal">
+      <div class="chat-head">
+        <h3 id="chat-title">Чат</h3>
+        <button class="btn x" data-close="chat" aria-label="Закрыть">✕</button>
+      </div>
+      <div class="chat-body" id="chat-body"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Сообщение..." maxlength="200">
+        <div class="chat-more-wrap">
+          <button class="btn chat-more" id="chat-more" title="Действия" aria-label="Действия">⋮</button>
+          <div class="chat-menu" id="chat-menu">
+            <button class="chat-menu-item" id="chat-menu-buy">Купить бизнес у игрока</button>
+            <button class="chat-menu-item" id="chat-menu-sell">Предложить бизнес</button>
+            <button class="chat-menu-item" id="chat-menu-ask">Попросить денег</button>
+            <button class="chat-menu-item" id="chat-menu-give">Дать денег</button>
+            <button class="chat-menu-item" id="chat-menu-swap">Обмен бизнесами</button>
+          </div>
+        </div>
+        <button class="btn main" id="chat-send">Отправить</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="mailbox">
+    <div class="modal mail-modal">
+      <div class="mail-head">
+        <h3>Почта</h3>
+        <button class="btn x" data-close="mailbox" aria-label="Закрыть">✕</button>
+      </div>
+      <p class="dim mail-hint">Приглашения на аукционы. Нажмите на письмо, чтобы открыть страницу аукциона.</p>
+      <div class="mail-body" id="mail-body"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="frm-buy">
+    <div class="modal small">
+      <h3>Купить бизнес</h3>
+      <p class="dim">Какой бизнес интересует и сколько вы готовы заплатить?</p>
+      <label class="frm-label">Бизнес игрока</label>
+      <select class="frm-select" id="frm-buy-select"></select>
+      <label class="frm-label">Сумма предложения (€)</label>
+      <input class="frm-input" type="number" id="frm-buy-sum" min="1" step="1" placeholder="Например, 300">
+      <div class="buy-actions">
+        <button class="btn main" id="frm-buy-send">Отправить форму</button>
+        <button class="btn" id="frm-buy-cancel">Отмена</button>
+      </div>
+      <p class="err" id="frm-buy-err"></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="frm-sell">
+    <div class="modal small">
+      <h3>Предложить бизнес</h3>
+      <p class="dim">Какой свой бизнес вы готовы продать и за сколько?</p>
+      <label class="frm-label">Мой бизнес</label>
+      <select class="frm-select" id="frm-sell-select"></select>
+      <label class="frm-label">Цена (€)</label>
+      <input class="frm-input" type="number" id="frm-sell-sum" min="1" step="1" placeholder="Например, 500">
+      <div class="buy-actions">
+        <button class="btn main" id="frm-sell-send">Отправить форму</button>
+        <button class="btn" id="frm-sell-cancel">Отмена</button>
+      </div>
+      <p class="err" id="frm-sell-err"></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="frm-ask">
+    <div class="modal small">
+      <h3>Попросить денег</h3>
+      <p class="dim">Сколько вы хотите попросить?</p>
+      <input class="frm-input" type="number" id="frm-ask-sum" min="1" step="1" placeholder="Сумма (€)">
+      <div class="buy-actions">
+        <button class="btn main" id="frm-ask-send">Отправить форму</button>
+        <button class="btn" id="frm-ask-cancel">Отмена</button>
+      </div>
+      <p class="err" id="frm-ask-err"></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="frm-give">
+    <div class="modal small">
+      <h3>Дать денег</h3>
+      <p class="dim">Сколько вы хотите передать?</p>
+      <input class="frm-input" type="number" id="frm-give-sum" min="1" step="1" placeholder="Сумма (€)">
+      <div class="buy-actions">
+        <button class="btn main" id="frm-give-send">Отправить форму</button>
+        <button class="btn" id="frm-give-cancel">Отмена</button>
+      </div>
+      <p class="err" id="frm-give-err"></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="frm-swap">
+    <div class="modal small">
+      <h3>Обмен бизнесами</h3>
+      <p class="dim">Выберите свой бизнес и бизнес игрока, затем — доплату.</p>
+      <div class="frm-swap-row">
+        <div><label class="frm-label">Мой бизнес</label><select class="frm-select" id="frm-swap-mine"></select></div>
+        <div><label class="frm-label">Его бизнес</label><select class="frm-select" id="frm-swap-theirs"></select></div>
+      </div>
+      <label class="frm-label">Доплата</label>
+      <select class="frm-select" id="frm-swap-side">
+        <option value="none">Без доплаты</option>
+        <option value="me">Я доплачиваю</option>
+        <option value="them">Он доплачивает</option>
+      </select>
+      <input class="frm-input" type="number" id="frm-swap-sum" min="0" step="1" placeholder="Сумма доплаты (€)">
+      <div class="buy-actions">
+        <button class="btn main" id="frm-swap-send">Отправить форму</button>
+        <button class="btn" id="frm-swap-cancel">Отмена</button>
+      </div>
+      <p class="err" id="frm-swap-err"></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="gameover">
+    <div class="modal small">
+      <h3 id="go-title">Игра окончена</h3>
+      <p class="dim" id="go-desc"></p>
+      <div class="buy-actions">
+        <button class="btn main" id="go-lobby">В лобби</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-zone" id="toast-zone-global"></div>
+
+  <div class="overlay" id="mono-fx">
+    <div class="mono-stage" id="mono-stage">
+      <div class="mono-cards" id="mono-cards"></div>
+      <div class="mono-text" id="mono-text">— собрал монополию</div>
+    </div>
+  </div>
+
+    <aside class="drawer dev" id="dev-panel">
+    <div class="dr-head"><span>DEV · Панель разработчика</span><span class="dr-hint">Shift — закрыть</span></div>
+    <div class="dr-body">
+      <section><h4>Игрок</h4><select id="dv-player"></select></section>
+      <section>
+        <h4>Анимации</h4>
+        <div class="dv-grid">
+          <button class="btn" data-a="star">Звезда</button>
+          <button class="btn" data-a="jailfx">Тюрьма</button>
+        </div>
+        <select id="dv-group"></select>
+        <button class="btn" data-a="mono">Монополия (анимация)</button>
+      </section>
+      <section>
+        <h4>Прямой запуск ивента</h4>
+        <div class="dv-grid">
+          <select id="dv-ev-p1"></select>
+          <select id="dv-ev-p2"></select>
+        </div>
+        <div class="dv-grid three">
+          <button class="btn" data-a="ev-direct-duel">Дуэль</button>
+          <button class="btn" data-a="ev-direct-steal">Делить</button>
+          <button class="btn" data-a="ev-direct-traitor">Предатель</button>
+        </div>
+      </section>
+      <section>
+        <h4>Деньги</h4>
+        <input class="dv-in" type="number" id="dv-money" placeholder="Сумма (€)" value="500">
+        <div class="dv-grid three">
+          <button class="btn" data-a="m-add">+</button>
+          <button class="btn" data-a="m-sub">−</button>
+          <button class="btn" data-a="m-set">=</button>
+        </div>
+      </section>
+      <section>
+        <h4>Телепорт</h4>
+        <select id="dv-cell"></select>
+        <label class="chk sm"><input type="checkbox" id="dv-apply"> применить клетку</label>
+        <button class="btn" data-a="tp">Телепортировать</button>
+      </section>
+      <section>
+        <h4>Бизнесы</h4>
+        <select id="dv-biz"></select>
+        <div class="dv-grid">
+          <button class="btn" data-a="give">Выдать</button>
+          <button class="btn" data-a="take">Забрать</button>
+          <button class="btn" data-a="star-up">+ звезда</button>
+          <button class="btn" data-a="star-down">− звезда</button>
+          <button class="btn" data-a="give-group">Выдать группу</button>
+          <button class="btn" data-a="take-all">Забрать все</button>
+        </div>
+      </section>
+      <section>
+        <h4>Кубики (следующий бросок)</h4>
+        <div class="dv-grid"><select id="dv-d1"></select><select id="dv-d2"></select></div>
+        <button class="btn" data-a="dice">Задать</button>
+      </section>
+      <section>
+        <h4>Тюрьма</h4>
+        <div class="dv-grid">
+          <button class="btn" data-a="jail-in">Посадить</button>
+          <button class="btn" data-a="jail-out">Выпустить</button>
+        </div>
+      </section>
+      <div class="dv-status" id="dv-status"></div>
+    </div>
+  </aside>
+
+  <div class="scene" id="ev-scene">
+    <div class="sc-layer" id="L-frame">
+      <div class="ev-stage">
+        <div class="ev-bg">
+          <svg class="ev-gear ev-gear-tl" viewBox="0 0 100 100"><use href="#gear"/></svg>
+          <svg class="ev-gear ev-gear-br" viewBox="0 0 100 100"><use href="#gear"/></svg>
+        </div>
+        <div class="ev-head">
+          <div class="ev-kicker">SYSTEM OF EVENTS</div>
+          <div class="ev-title">СИСТЕМА ИВЕНТОВ</div>
+          <div class="ev-line"></div>
+        </div>
+        <div class="sc-slot">
+          <div class="sc-layer" id="L-table">
+            <div class="ev-table-area" id="ev-table-area">
+              <div class="ev-table" id="ev-table">
+                <div class="ev-center hidden" id="ev-center">★</div>
+                <div class="ev-test-screen" id="ev-test-screen">
+                  <div class="ev-test-label" id="ev-test-label">ВЫБОР ИВЕНТА</div>
+                  <div class="ev-flip"><div class="ev-flip-line" id="ev-flip-line"></div></div>
+                </div>
+                <svg class="ev-arrows" id="ev-arrows"></svg>
+              </div>
+              <div class="ev-seats" id="ev-seats"></div>
+            </div>
+          </div>
+          <div class="sc-layer" id="L-draw">
+            <div class="draw-box">
+              <div class="draw-kicker" id="draw-kicker">РЕЗУЛЬТАТ ЖЕРЕБЬЁВКИ</div>
+              <div class="draw-players" id="draw-players"></div>
+              <div class="draw-test" id="draw-test"></div>
+              <div class="draw-desc" id="draw-desc"></div>
+            </div>
+          </div>
+        </div>
+        <div class="ev-sub" id="ev-sub"></div>
+        <div class="sc-layer sc-veil" id="L-dim"><div class="dim-text" id="dim-text"></div></div>
+      </div>
+    </div>
+
+    <div class="sc-layer" id="L-game">
+      <div class="sc-layer sc-sub" id="ev-duel">
+        <div class="duel-stage">
+          <div class="duel-head" id="duel-head"></div>
+          <canvas id="duel-canvas"></canvas>
+          <div class="duel-hint">WASD — движение · ЛКМ — выстрел</div>
+        </div>
+      </div>
+      <div class="sc-layer sc-sub" id="ev-steal"><div class="steal-stage"></div></div>
+      <div class="sc-layer sc-sub" id="ev-traitor"><div class="traitor-stage"></div></div>
+    </div>
+
+    <div class="sc-layer" id="L-result">
+      <div class="result-stage">
+        <div class="result-kicker">ИТОГ ИВЕНТА</div>
+        <div class="result-title" id="result-title">—</div>
+        <div class="result-body" id="result-body"></div>
+      </div>
+    </div>
+
+    <div class="sc-layer" id="L-star">
+      <div class="sc-star" id="sc-star">★</div>
+      <div class="sc-flash" id="sc-flash"></div>
+    </div>
+  </div>
+
+  <canvas id="confetti-canvas"></canvas>
+  <canvas id="fireworks-canvas"></canvas>
+
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <linearGradient id="gstarGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#fff1c0"/>
+        <stop offset=".45" stop-color="#e2a94e"/>
+        <stop offset="1" stop-color="#8a5320"/>
+      </linearGradient>
+      <symbol id="gstar" viewBox="0 0 100 100">
+        <path d="M50 4 L61 37 L96 38 L68 59 L78 93 L50 73 L22 93 L32 59 L4 38 L39 37 Z"
+              fill="url(#gstarGrad)" stroke="#fff3cf" stroke-width="1.5" stroke-linejoin="round"/>
+      </symbol>
+      <g id="gear">
+        <circle cx="50" cy="50" r="34" fill="none" stroke="currentColor" stroke-width="3"/>
+        <circle cx="50" cy="50" r="18" fill="none" stroke="currentColor" stroke-width="3"/>
+        <g fill="currentColor">
+          <rect x="47" y="6" width="6" height="14"/><rect x="47" y="80" width="6" height="14"/>
+          <rect x="6" y="47" width="14" height="6"/><rect x="80" y="47" width="14" height="6"/>
+          <rect x="19" y="15" width="6" height="14" transform="rotate(-45 22 22)"/>
+          <rect x="75" y="71" width="6" height="14" transform="rotate(-45 78 78)"/>
+          <rect x="75" y="15" width="6" height="14" transform="rotate(45 78 22)"/>
+          <rect x="19" y="71" width="6" height="14" transform="rotate(45 22 78)"/>
+        </g>
+      </g>
+      <marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#d43030"/>
+      </marker>
+    </defs>
+  </svg>
+
+</div>
+<script src="sound.js"></script>
+<script src="net-client.js"></script>
+<script src="board.js"></script>
+<script src="fx.js"></script>
+<script src="events.js"></script>
+<script src="sfxpanel.js"></script>
+<script src="dev.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
