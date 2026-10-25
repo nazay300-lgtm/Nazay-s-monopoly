@@ -5,10 +5,15 @@ const Board = (() => {
   const WAIT_MS = 3000, STEP_PAUSE = 110;
   const START_MONEY = 3000, START_BONUS = 200;
   const JAIL_BASE = 150, JAIL_GROW = 0.15;
+  const JAIL_MAX_ATTEMPTS = 5;
   const BOT_RESERVE = 300, BOT_BID_MIN = 500;
   const AUCTION_INVITE_MS = 10000, AUCTION_TRADE_MS = 20000, AUCTION_STEP = 25;
-  const EVENT_EVERY = 15;                     // ивент каждые N ходов (можно поставить 5 для теста)
-  const AUCTION_WAIT_MAX = 60 * 1000;         // максимум ждём завершения аукциона
+  const AUCTION_HARD_LIMIT = AUCTION_INVITE_MS + AUCTION_TRADE_MS + 30000;
+  const AUCTION_SYNC_EVERY = 5;
+  const AUCTION_CLIENT_FALLBACK_MS = 5000;
+  const AUCTION_LEADER_LEAVE_EXTEND = 5000;
+  const EVENT_EVERY = 15;
+  const AUCTION_WAIT_MAX = 60 * 1000;
   const TURN_MS = 4 * 60 * 1000, TURN_TICK = 100;
   const BUY_TIMEOUT_MS = 30000, JAIL_TIMEOUT_MS = 30000, RENT_TIMEOUT_MS = 60000;
   const MONEY_ANIM_MS = 800;
@@ -78,10 +83,11 @@ const Board = (() => {
   let MP = false, IS_HOST = true, ME = 0, over = false;
   let chips = [], Q = [], yieldSet = new Set(), cellEls = [], owner = [], stars = [];
   let busy = false, cur = 0, session = 0, turnNo = 1, dir = 1;
-  let skipNext = [], inJail = [], jailFee = [], loans = [], reverseNext = [], upgraded = [];
-  let auction = null, auctionSeq = 0, turnBlocked = false;
+  let skipNext = [], inJail = [], jailFee = [], jailAttempts = [], loans = [], reverseNext = [], upgraded = [];
+  let auction = null, auctionSeq = 0, turnBlocked = false, aucSyncTick = 0;
   let chatState = {}, chatUnread = {}, mailInbox = [], forms = {}, interactTarget = null;
   let turnTimer = null, rentLocal = null, rentCancel = null, buyCancel = null, jailCancel = null;
+  let sellCancel = null, sellPl = null;
   let devDice = null, vq = Promise.resolve(), lastMoney = [], syncQueued = false, msT = 0;
   let pend = {}, askSeq = 0, monoQueue = Promise.resolve();
   let moneyAnimRAF = null;
@@ -91,8 +97,7 @@ const Board = (() => {
   function toHost(d) { if (MP && !IS_HOST) Net.game(d); }
   const seatsExcept = (...ex) => Game.players.map(p => p.id).filter(i => i !== ME && !ex.includes(i));
 
-  // Ключи «залипающих» событий — реальные имена из events.js.
-  const STICKY = new Set(['res', 'duel:end', 'steal:show', 'traitor:show']);
+  const STICKY = new Set(['res', 'duel:end', 'steal:show', 'traitor:show', 'ah:end']);
   let evL = {}, evLast = {};
   const evOn = (k, fn) => { (evL[k] = evL[k] || new Set()).add(fn); if (STICKY.has(k) && evLast[k]) { const v = evLast[k]; setTimeout(() => fn(v.d, v.from), 0); } return () => evL[k] && evL[k].delete(fn); };
   const evEmit = (k, d, from) => { if (STICKY.has(k)) evLast[k] = { d, from }; (evL[k] ? [...evL[k]] : []).forEach(fn => fn(d, from)); };
@@ -113,7 +118,7 @@ const Board = (() => {
       const p = gridPos(i), d = document.createElement('div');
       d.className = 'cell ' + cl.t + (cl.k ? ' k-' + cl.k : '');
       d.style.gridColumn = p.c + 1; d.style.gridRow = p.r + 1;
-      d.innerHTML = cl.t === 'biz' ? `<div class="plate"><img src="img/${cl.img}.png" alt="" onerror="this.remove()"></div><span class="nm">${cl.n}</span><span class="price">${BIZ[cl.key].price} €</span>` : `<span class="big">${cl.n}</span>`;
+      d.innerHTML = cl.t === 'biz' ? `<div class="plate"><img src="img/${cl.img}.png" alt="" data-errem></div><span class="nm">${cl.n}</span><span class="price">${BIZ[cl.key].price} €</span>` : `<span class="big">${cl.n}</span>`;
       d.addEventListener('click', () => onCellClick(i));
       b.insertBefore(d, b.firstChild);
       cellEls[i] = d;
@@ -265,6 +270,7 @@ const Board = (() => {
     s.o.forEach((o, i) => { if (owner[i] !== o) setOwner(i, o); });
     s.s.forEach((n, i) => { if (stars[i] !== n) { stars[i] = n; renderStars(i); } });
     inJail = s.j; loans = s.l.map(n => n ? { turnsLeft: n } : null); cur = s.cur; turnNo = s.turnNo; renderPlayers();
+    if (Modal_isOpen('sell') && sellPl) renderSellModal(sellPl);
   }
   function moneySound() { const t = performance.now(); if (t - msT < 250) return; msT = t; try { Sound.money(); } catch (e) {} }
 
@@ -309,7 +315,7 @@ const Board = (() => {
             ${alive ? `<div class="worth">Итого: ${totalWorth(i)} €</div>` : ''}
             ${alive ? `<div class="companies">Компаний: <b>${countCompanies(i)}</b></div>` : ''}
             ${loans[i] ? `<div class="loan-tag">кредит · ${loans[i].turnsLeft} х.</div>` : ''}
-            ${inJail[i] ? `<div class="loan-tag" style="color:#ff9d9d">в тюрьме</div>` : ''}
+            ${inJail[i] ? `<div class="loan-tag" style="color:#ff9d9d">в тюрьме${jailAttempts[i] ? ` · ${jailAttempts[i]}/5` : ''}</div>` : ''}
           </div>
           <div class="pc-side">${actionBtns}${mailBtn}</div>
           ${timerHtml}
@@ -373,12 +379,31 @@ const Board = (() => {
   }
   function askJailUI(pl) {
     return new Promise(res => {
-      g('jail-desc').textContent = `Заплатить ${pl.fee} € или бросить кубики (нужен дубль 2)?`;
+      const canRoll = pl.attempt <= JAIL_MAX_ATTEMPTS;
+      const canPay = pl.money >= pl.fee;
+      let desc;
+      if (!canRoll) {
+        desc = canPay
+          ? `Все ${JAIL_MAX_ATTEMPTS} попыток израсходованы. Только выкуп: ${pl.fee} €.`
+          : `Все ${JAIL_MAX_ATTEMPTS} попыток израсходованы. Не хватает на выкуп (${pl.fee} €) — банкрот.`;
+      } else {
+        desc = `Попытка ${pl.attempt}/${JAIL_MAX_ATTEMPTS}. Заплатить ${pl.fee} € или бросить кубики (нужен дубль 2)?`;
+      }
+      g('jail-desc').textContent = desc;
       ['jail-pay', 'jail-roll'].forEach(id => { const n = g(id); n.replaceWith(n.cloneNode(true)); });
       let done = false;
       const fin = v => { if (done) return; done = true; clearTimeout(to); jailCancel = null; Modal.close('jail'); res(v); };
-      g('jail-pay').addEventListener('click', () => fin('pay')); g('jail-roll').addEventListener('click', () => fin('roll'));
-      const to = setTimeout(() => fin('roll'), JAIL_TIMEOUT_MS); jailCancel = () => fin(null);
+      const payBtn = g('jail-pay'), rollBtn = g('jail-roll');
+      payBtn.disabled = !canPay; payBtn.classList.toggle('disabled', !canPay);
+      rollBtn.disabled = !canRoll; rollBtn.classList.toggle('disabled', !canRoll);
+      payBtn.addEventListener('click', () => { if (canPay) fin('pay'); });
+      rollBtn.addEventListener('click', () => { if (canRoll) fin('roll'); });
+      const to = setTimeout(() => {
+        if (canRoll) fin('roll');
+        else if (canPay) fin('pay');
+        else fin('bankrupt');
+      }, JAIL_TIMEOUT_MS);
+      jailCancel = () => fin(null);
       Modal.open('jail');
     });
   }
@@ -390,15 +415,36 @@ const Board = (() => {
       rentCancel = () => { if (!rentLocal) return; rentLocal = null; rentCancel = null; resetRollBtn(); res(false); };
     });
   }
+  function askSellUI(pl) {
+    return new Promise(res => {
+      let done = false;
+      const fin = v => { if (done) return; done = true; clearTimeout(to); sellCancel = null; sellPl = null; Modal.close('sell'); res(v); };
+      sellPl = pl;
+      renderSellModal(pl);
+      const to = setTimeout(() => {
+        const p = Game.players[pl.playerId];
+        fin(p && p.money >= pl.need ? 'ok' : 'bankrupt');
+      }, 90000);
+      sellCancel = () => fin(null);
+      g('sell-done').onclick = () => {
+        const p = Game.players[pl.playerId];
+        if (p && p.money >= pl.need) fin('ok');
+      };
+      g('sell-bankrupt').onclick = () => fin('bankrupt');
+      Modal.open('sell');
+    });
+  }
   function localAsk(kind, pl) {
     if (kind === 'buy') return askBuyUI(pl);
     if (kind === 'jail') return askJailUI(pl);
+    if (kind === 'sell') return askSellUI(pl);
     return askRentUI(pl.rent);
   }
   function cancelLocalAsk(kind) {
     if (kind === 'buy' && buyCancel) buyCancel();
     if (kind === 'jail' && jailCancel) jailCancel();
     if (kind === 'rent' && rentCancel) rentCancel();
+    if (kind === 'sell' && sellCancel) sellCancel();
   }
   function ask(pid, kind, pl, ms, def) {
     if (pid === ME) return Promise.race([localAsk(kind, pl), sleep(ms).then(() => { cancelLocalAsk(kind); return def; })]);
@@ -457,6 +503,104 @@ const Board = (() => {
     stars[idx]--; p.money += refund; renderStars(idx); renderPlayers();
     glog(`${p.name} снял звезду с «${c.n}», вернув ${refund} €`);
   }
+  function doSellBiz(pid, idx) {
+    const p = Game.players[pid], c = CELLS[idx];
+    if (!p || !p.alive || !c || c.t !== 'biz' || owner[idx] !== pid) return;
+    const refund = bizMarketValue(idx);
+    p.money += refund;
+    setOwner(idx, null);
+    stars[idx] = 0;
+    renderStars(idx);
+    renderPlayers();
+    glog(`${p.name} продал «${c.n}» в банк за ${refund} €`);
+  }
+  function renderSellModal(pl) {
+    const p = Game.players[pl.playerId];
+    if (!p) return;
+    g('sell-need').textContent = pl.need + ' €';
+    g('sell-balance').textContent = p.money + ' €';
+    const list = g('sell-list');
+    const assets = [];
+    owner.forEach((o, i) => { if (o === p.id) assets.push(i); });
+    if (!assets.length) {
+      list.innerHTML = '<p class="dim" style="text-align:center;padding:1rem">Нет имущества для продажи</p>';
+    } else {
+      list.innerHTML = assets.map(i => {
+        const c = CELLS[i], st = stars[i];
+        const starVal = st > 0 ? Math.round(BIZ[c.key].price * UPGRADE_PCT[st - 1]) : 0;
+        const bizVal = bizMarketValue(i);
+        return `<div class="sell-row">
+          <div class="sell-info"><b>${esc(c.n)}</b>${st ? ' ' + '★'.repeat(st) : ''}</div>
+          <div class="sell-val">${bizVal} €</div>
+          <div class="sell-actions">
+            ${st > 0 ? `<button class="btn sm" data-sell="star" data-idx="${i}">Снять ★ (+${starVal} €)</button>` : ''}
+            <button class="btn sm" data-sell="biz" data-idx="${i}">Продать (+${bizVal} €)</button>
+          </div>
+        </div>`;
+      }).join('');
+      list.querySelectorAll('[data-sell]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const mode = btn.dataset.sell, idx = +btn.dataset.idx;
+          if (IS_HOST) {
+            if (mode === 'star') doDowngrade(p.id, idx);
+            else doSellBiz(p.id, idx);
+          } else {
+            toHost({ a: mode === 'star' ? 'downgrade' : 'sellbiz', idx });
+          }
+          renderSellModal(pl);
+        });
+      });
+    }
+    const doneBtn = g('sell-done');
+    if (doneBtn) {
+      const canPay = p.money >= pl.need;
+      doneBtn.disabled = !canPay;
+      doneBtn.classList.toggle('disabled', !canPay);
+    }
+  }
+  function autoLiquidate(p, need) {
+    let guard = 0;
+    while (p.money < need && p.alive && guard++ < 30) {
+      const assets = bidx(p.id);
+      if (!assets.length) break;
+      const withStar = assets.filter(i => stars[i] > 0);
+      if (withStar.length) {
+        let bestIdx = withStar[0], bestVal = Infinity;
+        for (const i of withStar) {
+          const c = CELLS[i];
+          const val = Math.round(BIZ[c.key].price * UPGRADE_PCT[stars[i] - 1]);
+          if (val < bestVal) { bestVal = val; bestIdx = i; }
+        }
+        doDowngrade(p.id, bestIdx);
+      } else {
+        let bestIdx = assets[0], bestVal = Infinity;
+        for (const i of assets) {
+          const val = bizMarketValue(i);
+          if (val < bestVal) { bestVal = val; bestIdx = i; }
+        }
+        doSellBiz(p.id, bestIdx);
+      }
+    }
+    if (p.alive && p.money < need) {
+      bankruptPlayer(p.id, `не хватает на оплату ${need} € даже после продажи имущества`);
+    }
+  }
+  async function ensureSolvency(p, need) {
+    if (!p || !p.alive) return false;
+    if (p.money >= need) return true;
+    const assets = bidx(p.id);
+    const totalAssets = assets.reduce((s, i) => s + bizMarketValue(i), 0);
+    if (p.money + totalAssets < need) {
+      bankruptPlayer(p.id, `не хватает на оплату ${need} € даже после продажи имущества`);
+      return false;
+    }
+    if (p.bot) {
+      autoLiquidate(p, need);
+    } else {
+      await ask(p.id, 'sell', { need, playerId: p.id }, 95000, 'bankrupt');
+    }
+    return p.alive && p.money >= need;
+  }
   function doAuctionFromBiz(pid, idx) {
     const p = Game.players[pid], c = CELLS[idx];
     if (!p || !p.alive || !c || c.t !== 'biz' || owner[idx] !== pid) return;
@@ -489,7 +633,7 @@ const Board = (() => {
   async function monopolyVis(pid, cells) {
     try { Sound.monopoly(); } catch (e) {}
     const cards = g('mono-cards');
-    cards.innerHTML = cells.map((i, k) => `<div class="mono-card" style="animation-delay:${0.15 * k}s"><img src="img/${CELLS[i].img}.png" alt="" onerror="this.remove()"><div class="mc-name">${CELLS[i].n}</div></div>`).join('');
+    cards.innerHTML = cells.map((i, k) => `<div class="mono-card" style="animation-delay:${0.15 * k}s"><img src="img/${CELLS[i].img}.png" alt="" data-errem><div class="mc-name">${CELLS[i].n}</div></div>`).join('');
     g('mono-text').textContent = `${Game.players[pid].name} собрал монополию`;
     Modal.open('mono-fx'); await sleep(6000); Modal.close('mono-fx'); await sleep(800); cards.innerHTML = '';
   }
@@ -567,9 +711,11 @@ const Board = (() => {
   function bankruptPlayer(pid, why) {
     const p = Game.players[pid]; if (!p || !p.alive) return;
     p.alive = false;
+    p.money = 0;
     owner.forEach((o, i) => { if (o === pid) { setOwner(i, null); stars[i] = 0; renderStars(i); } });
-    inJail[pid] = false; loans[pid] = null;
+    inJail[pid] = false; loans[pid] = null; jailAttempts[pid] = 0;
     glog(`💥 ${p.name} ${why || 'обанкротился'}!`);
+    try { handleAuctionLeave(pid); } catch (e) { console.error('handleAuctionLeave:', e); }
     renderPlayers();
   }
   function checkBankrupt() { Game.players.forEach(p => { if (p.alive && p.money < 0) bankruptPlayer(p.id); }); }
@@ -601,7 +747,7 @@ const Board = (() => {
   async function applyCell(p, idx, passedStart) {
     try {
       if (passedStart) { p.money += START_BONUS; glog(`${p.name}: +${START_BONUS} € за проход СТАРТ`); }
-      const c = CELLS[idx], ch = chips[p.id];
+      const c = CELLS[idx];
       if (c.t === 'biz') {
         const price = BIZ[c.key].price;
         if (owner[idx] == null) {
@@ -622,18 +768,21 @@ const Board = (() => {
           }
         } else if (owner[idx] !== p.id) {
           const ownerP = Game.players[owner[idx]], st = stars[idx], rent = Math.round(BIZ[c.key].rent * RENT_MULT[st]);
-          if (!p.bot) {
-            glog(`${p.name} должен оплатить ${rent} € ренты «${c.n}» (${st}★) игроку ${ownerP.name}`);
-            await ask(p.id, 'rent', { rent }, RENT_TIMEOUT_MS, true);
-            if (!p.alive) return;
-          }
+          glog(`${p.name} должен оплатить ${rent} € ренты «${c.n}» (${st}★) игроку ${ownerP.name}`);
+          const ok = await ensureSolvency(p, rent);
+          if (!ok || !p.alive) { renderPlayers(); return; }
           p.money -= rent; ownerP.money += rent;
           glog(`${p.name} заплатил ${rent} € ренты «${c.n}» (${st}★) игроку ${ownerP.name}`);
         }
         renderPlayers(); return;
       }
       if (c.k === 'plus')  { p.money += 100; glog(`${p.name}: +100 €`); }
-      if (c.k === 'minus') { p.money -= 100; glog(`${p.name}: −100 €`); }
+      if (c.k === 'minus') {
+        const ok = await ensureSolvency(p, 100);
+        if (!ok || !p.alive) { renderPlayers(); return; }
+        p.money -= 100;
+        glog(`${p.name}: −100 €`);
+      }
       if (c.k === 'doctor') { skipNext[p.id] = true; try { Sound.doctor(); } catch (e) {} glog(`${p.name}: врач — пропуск хода`); }
       if (c.k === 'back') { reverseNext[p.id] = true; glog(`${p.name}: следующий ход назад`); }
       if (c.k === 'tp') {
@@ -642,12 +791,23 @@ const Board = (() => {
         glog(`${p.name}: телепорт на «${CELLS[t].n}»`);
         return applyCell(p, t, false);
       }
-      if (c.n === 'Тюрьма') { await V({ v: 'jail', name: p.name }); inJail[p.id] = true; glog(`${p.name} отправлен в тюрьму. Ход пропущен.`); }
+      if (c.n === 'Тюрьма') {
+        await V({ v: 'jail', name: p.name });
+        inJail[p.id] = true;
+        jailAttempts[p.id] = 0;
+        jailFee[p.id] = JAIL_BASE;
+        glog(`${p.name} отправлен в тюрьму. Ход пропущен.`);
+      }
       if (c.n === 'Казино') {
         const delta = Math.floor(Math.random() * 601) - 300;
         if (delta === 0) glog(`${p.name} в казино: ровно 0 €`);
         else if (delta > 0) { p.money += delta; glog(`${p.name} в казино: +${delta} €`); }
-        else { p.money += delta; glog(`${p.name} в казино: ${delta} €`); }
+        else {
+          const ok = await ensureSolvency(p, -delta);
+          if (!ok || !p.alive) { renderPlayers(); return; }
+          p.money += delta;
+          glog(`${p.name} в казино: ${delta} €`);
+        }
       }
       if (c.n === 'СТАРТ') glog(`${p.name} на СТАРТе`);
       if (c.n === 'Отдых') glog(`${p.name} отдыхает`);
@@ -656,20 +816,67 @@ const Board = (() => {
   }
 
   async function jailSequence(p) {
-    const tryRoll = () => {
-      const a = 1 + Math.floor(Math.random() * 6), b = 1 + Math.floor(Math.random() * 6);
-      glog(`${p.name} бросает кубики: ${a} и ${b} (${a + b})`);
-      if (a + b === 2) { glog(`${p.name} выбросил дубль 2 и вышел!`); inJail[p.id] = false; }
-      else { jailFee[p.id] = Math.round(jailFee[p.id] * (1 + JAIL_GROW)); glog(`${p.name}: не вышел. Новый выкуп: ${jailFee[p.id]} €`); }
-    };
+    const my = session;
+    const attempt = (jailAttempts[p.id] || 0) + 1;
+    const canRoll = attempt <= JAIL_MAX_ATTEMPTS;
+    const canPay = p.money >= jailFee[p.id];
+
+    if (!canRoll) {
+      if (!canPay) {
+        glog(`${p.name}: ${JAIL_MAX_ATTEMPTS} попыток в тюрьме, не хватает на выкуп ${jailFee[p.id]} € — банкрот`);
+        bankruptPlayer(p.id, 'не смог выкупиться из тюрьмы');
+        return;
+      }
+      p.money -= jailFee[p.id];
+      inJail[p.id] = false;
+      jailAttempts[p.id] = 0;
+      glog(`${p.name}: попытки исчерпаны, платит ${jailFee[p.id]} € и выходит`);
+      renderPlayers();
+      return;
+    }
+
+    jailAttempts[p.id] = attempt;
+    renderPlayers();
+
     let choice;
-    if (p.bot) choice = (p.money >= jailFee[p.id] && Math.random() < 0.7) ? 'pay' : 'roll';
-    else choice = await ask(p.id, 'jail', { fee: jailFee[p.id] }, JAIL_TIMEOUT_MS + 5000, 'roll');
+    if (p.bot) {
+      choice = (canPay && Math.random() < 0.7) ? 'pay' : 'roll';
+    } else {
+      choice = await ask(p.id, 'jail', { fee: jailFee[p.id], attempt, max: JAIL_MAX_ATTEMPTS }, JAIL_TIMEOUT_MS + 5000, 'roll');
+    }
     if (!p.alive) return;
+    if (my !== session) return;
+
     if (choice === 'pay') {
-      if (p.money >= jailFee[p.id]) { p.money -= jailFee[p.id]; glog(`${p.name} заплатил ${jailFee[p.id]} € и вышел из тюрьмы`); inJail[p.id] = false; }
-      else glog(`${p.name}: не хватает денег — остаётся`);
-    } else tryRoll();
+      const fee = jailFee[p.id];
+      const ok = await ensureSolvency(p, fee);
+      if (!ok || !p.alive) { renderPlayers(); return; }
+      p.money -= fee;
+      inJail[p.id] = false;
+      jailAttempts[p.id] = 0;
+      glog(`${p.name} заплатил ${fee} € и вышел из тюрьмы`);
+      renderPlayers();
+      return;
+    }
+
+    if (choice === 'bankrupt') {
+      bankruptPlayer(p.id, 'не смог выкупиться из тюрьмы');
+      return;
+    }
+
+    const a = 1 + Math.floor(Math.random() * 6), b = 1 + Math.floor(Math.random() * 6);
+    await V({ v: 'dice', a, b });
+    if (my !== session) return;
+
+    glog(`${p.name} бросает кубики: ${a} и ${b} (${a + b}). Попытка ${attempt}/${JAIL_MAX_ATTEMPTS}.`);
+    if (a + b === 2) {
+      inJail[p.id] = false;
+      jailAttempts[p.id] = 0;
+      glog(`${p.name} выбросил дубль 2 и вышел!`);
+    } else {
+      jailFee[p.id] = Math.round(jailFee[p.id] * (1 + JAIL_GROW));
+      glog(`${p.name}: не вышел. Новый выкуп: ${jailFee[p.id]} €`);
+    }
     renderPlayers();
   }
 
@@ -682,13 +889,16 @@ const Board = (() => {
     return true;
   }
   function abc(m) { aucApply(m); bc({ v: 'auc', ...m }); }
+
   function aucApply(m) {
     if (m.ev === 'start') {
       auction = {
         id: m.id, idx: m.idx, startPrice: m.startPrice, fromOwner: m.fromOwner, creator: m.creator,
-        blocked: new Set(m.blocked), lastBid: null, leader: null, phase: 'invite', deadline: performance.now() + AUCTION_INVITE_MS,
+        blocked: new Set(m.blocked), lastBid: null, leader: null, phase: 'invite',
+        deadline: performance.now() + AUCTION_INVITE_MS, startedAt: performance.now(),
         hist: [`Старт: ${m.startPrice} €`, `Приглашение (${AUCTION_INVITE_MS/1000} с)`], finished: false, result: null
       };
+      aucSyncTick = 0;
       if (Game.players[ME] && Game.players[ME].alive) {
         mailInbox.push({ id: uid(), auctionId: m.id, lotName: m.lot, startPrice: m.startPrice, time: Date.now(), read: false });
         try { Sound.letter(); } catch (e) {}
@@ -696,26 +906,58 @@ const Board = (() => {
       }
       g('auc-input').value = ''; g('auc-status').textContent = '';
       aucRender(); renderPlayers(); if (Modal_isOpen('mailbox')) renderMailbox();
-    } else if (m.ev === 'phase') {
-      if (!auction || auction.id !== m.id) return;
+      return;
+    }
+
+    if (!auction || auction.id !== m.id) return;
+
+    if (m.ev === 'phase') {
       auction.phase = m.phase;
       if (m.phase === 'trade') { auction.deadline = performance.now() + AUCTION_TRADE_MS; auction.hist.push(`Торги (${AUCTION_TRADE_MS/1000} с)`); }
       if (Modal_isOpen('auction')) aucRender();
     } else if (m.ev === 'bid') {
-      if (!auction || auction.id !== m.id) return;
+      if (auction.finished) return;
       auction.lastBid = m.amount; auction.leader = m.pid;
       if (auction.phase === 'trade') auction.deadline = performance.now() + AUCTION_TRADE_MS;
       auction.hist.push(`${m.name}: ${m.amount} €`);
       g('auc-status').textContent = ''; aucRender();
+    } else if (m.ev === 'sync') {
+      auction.phase = m.phase || auction.phase;
+      if (m.leader !== undefined) auction.leader = m.leader;
+      if (m.lastBid !== undefined) auction.lastBid = m.lastBid;
+      if (typeof m.remaining === 'number') auction.deadline = performance.now() + Math.max(0, m.remaining);
+      if (m.finished && !auction.finished) {
+        auction.finished = true;
+        auction.result = m.result || { sold: false, winner: null, price: null };
+        aucRender(); renderPlayers(); if (Modal_isOpen('mailbox')) renderMailbox();
+        const id = m.id;
+        setTimeout(() => { if (auction && auction.id === id) { Modal.close('auction'); auction = null; renderPlayers(); } }, 3500);
+      } else if (Modal_isOpen('auction')) aucRender();
+    } else if (m.ev === 'reset') {
+      if (auction.finished) return;
+      auction.leader = null;
+      auction.lastBid = null;
+      auction.hist.push(m.msg || 'Ставка сброшена');
+      if (typeof m.remaining === 'number' && m.remaining > 0) auction.deadline = performance.now() + m.remaining;
+      if (Modal_isOpen('auction')) aucRender();
     } else if (m.ev === 'end') {
-      if (!auction || auction.id !== m.id) return;
-      auction.finished = true; auction.result = m;
+      const wasFinished = auction.finished;
+      auction.finished = true;
+      auction.result = m;
       mailInbox.forEach(x => { if (x.auctionId === m.id) x.read = true; });
       aucRender(); renderPlayers(); if (Modal_isOpen('mailbox')) renderMailbox();
-      const id = m.id;
-      setTimeout(() => { if (auction && auction.id === id) { Modal.close('auction'); auction = null; } }, 3500);
+      if (!wasFinished) {
+        const lot = CELLS[auction.idx].n;
+        const txt = m.sold
+          ? `🏆 Аукцион: ${Game.players[m.winner] ? Game.players[m.winner].name : '—'} забрал «${lot}» за ${m.price} €`
+          : `Аукцион по «${lot}» не состоялся`;
+        if (!Modal_isOpen('auction')) toast(txt);
+        const id = m.id;
+        setTimeout(() => { if (auction && auction.id === id) { Modal.close('auction'); auction = null; renderPlayers(); } }, 3500);
+      }
     } else if (m.ev === 'reject') aucRejectUI(m.msg);
   }
+
   function aucRender() {
     const a = auction; if (!a) return;
     const c = CELLS[a.idx], me = Game.players[ME];
@@ -738,14 +980,54 @@ const Board = (() => {
     g('auction').classList.toggle('done', a.finished);
     aucTick();
   }
+
   function aucTick() {
     const a = auction; if (!a) return;
     const now = performance.now();
-    let left = a.finished ? 0 : Math.max(0, a.deadline - now);
-    if (!a.finished && a.phase === 'invite' && left <= 0) {
-      if (IS_HOST) { a.phase = 'trade'; a.deadline = now + AUCTION_TRADE_MS; a.hist.push(`Торги (${AUCTION_TRADE_MS/1000} с)`); if (MP) bc({ v: 'auc', ev: 'phase', id: a.id, phase: 'trade' }); left = AUCTION_TRADE_MS; if (Modal_isOpen('auction')) aucRender(); }
+
+    if (!a.finished && IS_HOST) {
+      if (++aucSyncTick >= AUCTION_SYNC_EVERY) {
+        aucSyncTick = 0;
+        bc({ v: 'auc', ev: 'sync', id: a.id,
+             phase: a.phase, leader: a.leader, lastBid: a.lastBid,
+             remaining: Math.max(0, a.deadline - now),
+             finished: a.finished, result: a.result });
+      }
     }
-    if (!a.finished && a.phase === 'trade' && left <= 0) { if (IS_HOST) finishAuction(); return; }
+
+    if (!a.finished && IS_HOST && a.startedAt && now - a.startedAt > AUCTION_HARD_LIMIT) {
+      console.warn('[auction] hard limit exceeded, forcing finish');
+      try { finishAuction(); } catch (e) { console.error('[auction] finishAuction failed:', e); }
+      return;
+    }
+
+    if (!a.finished && !IS_HOST && a.deadline && now - a.deadline > AUCTION_CLIENT_FALLBACK_MS) {
+      console.warn('[auction] client fallback: end not received');
+      a.finished = true;
+      a.result = { sold: false, winner: null, price: null };
+      if (Modal_isOpen('auction')) aucRender();
+      renderPlayers();
+      return;
+    }
+
+    let left = a.finished ? 0 : Math.max(0, a.deadline - now);
+
+    if (!a.finished && a.phase === 'invite' && left <= 0) {
+      if (IS_HOST) {
+        a.phase = 'trade'; a.deadline = now + AUCTION_TRADE_MS;
+        a.hist.push(`Торги (${AUCTION_TRADE_MS/1000} с)`);
+        if (MP) bc({ v: 'auc', ev: 'phase', id: a.id, phase: 'trade' });
+        left = AUCTION_TRADE_MS;
+        if (Modal_isOpen('auction')) aucRender();
+      }
+    }
+    if (!a.finished && a.phase === 'trade' && left <= 0) {
+      if (IS_HOST) {
+        try { finishAuction(); } catch (e) { console.error('[auction] finishAuction failed:', e); }
+      }
+      return;
+    }
+
     if (Modal_isOpen('auction')) {
       g('auc-time').textContent = a.finished ? '✓' : Math.ceil(left / 1000);
       const total = a.phase === 'invite' ? AUCTION_INVITE_MS : AUCTION_TRADE_MS;
@@ -755,9 +1037,11 @@ const Board = (() => {
     }
   }
   setInterval(aucTick, 200);
+
   let aucStatT = 0;
   function aucRejectUI(msg) { g('auc-status').textContent = msg; try { Sound.error(); } catch (e) {} clearTimeout(aucStatT); aucStatT = setTimeout(() => { g('auc-status').textContent = ''; }, 3500); }
   function openAuctionPage() { if (!auction) { toast('Этот аукцион уже завершён'); try { Sound.error(); } catch (e) {} return; } aucRender(); Modal.open('auction'); }
+
   function placeBid(pid, amount) {
     const a = auction, p = Game.players[pid];
     const rej = msg => { if (pid === ME) aucRejectUI(msg); else bc({ v: 'auc', ev: 'reject', msg }, [pid]); return false; };
@@ -775,25 +1059,64 @@ const Board = (() => {
     glog(`${p.name} поставил ${amount} € на «${CELLS[a.idx].n}»`);
     return true;
   }
+
+  function broadcastAucEnd(a, sold, winner, price) {
+    const msg = { ev: 'end', id: a.id, sold, winner, price };
+    try { abc(msg); } catch (e) { console.error('bc end #1', e); }
+    setTimeout(() => { try { bc({ v: 'auc', ...msg }); } catch (e) { console.error('bc end #2', e); } }, 800);
+    setTimeout(() => { try { bc({ v: 'auc', ...msg }); } catch (e) { console.error('bc end #3', e); } }, 2500);
+  }
+
   function finishAuction() {
     if (!IS_HOST) return;
     const a = auction; if (!a || a.finished) return;
-    const idx = a.idx, lot = CELLS[idx].n;
-    let sold = false, winner = a.leader, price = a.lastBid;
-    if (winner != null && price != null) {
-      const w = Game.players[winner];
-      if (w.alive && w.money >= price) {
-        sold = true; w.money -= price;
-        if (a.fromOwner && owner[idx] != null) Game.players[owner[idx]].money += price;
-        setOwner(idx, winner);
-        glog(`🏆 ${w.name} выиграл аукцион на «${lot}» за ${price} €${a.fromOwner ? '' : ' (деньги банку)'}`);
-      } else { winner = null; glog(`Аукцион по «${lot}» отменён — у победителя не хватило денег`); }
-    } else glog(`Аукцион по «${lot}» не состоялся — ставок не было`);
-    abc({ ev: 'end', id: a.id, sold, winner, price });
-    renderPlayers();
-    if (sold) { const mono = checkMonopoly(winner); if (mono) monopolyFx(winner, mono.cells); }
-    setTimeout(() => { if (turnBlocked) { turnBlocked = false; if (!busy && !over) beginTurn(); } }, 3700);
+    a.finished = true;
+    try {
+      const idx = a.idx, lot = CELLS[idx].n;
+      let sold = false, winner = a.leader, price = a.lastBid;
+      if (winner != null && price != null) {
+        const w = Game.players[winner];
+        if (w && w.alive && w.money >= price) {
+          sold = true; w.money -= price;
+          if (a.fromOwner) {
+            const seller = Game.players[a.creator];
+            if (seller && seller.alive) seller.money += price;
+          }
+          setOwner(idx, winner);
+          glog(`🏆 ${w.name} выиграл аукцион на «${lot}» за ${price} €${a.fromOwner ? '' : ' (деньги банку)'}`);
+        } else {
+          winner = null;
+          glog(`Аукцион по «${lot}» отменён — у победителя не хватило денег`);
+        }
+      } else glog(`Аукцион по «${lot}» не состоялся — ставок не было`);
+      broadcastAucEnd(a, sold, winner, price);
+      renderPlayers();
+      if (sold) { try { const mono = checkMonopoly(winner); if (mono) monopolyFx(winner, mono.cells); } catch (e) { console.error(e); } }
+      setTimeout(() => { if (turnBlocked) { turnBlocked = false; if (!busy && !over) beginTurn(); } }, 3700);
+    } catch (err) {
+      console.error('finishAuction error:', err);
+      broadcastAucEnd(a, false, null, null);
+    }
   }
+
+  function handleAuctionLeave(pid) {
+    if (!auction || auction.finished) return;
+    if (auction.leader === pid) {
+      auction.leader = null;
+      auction.lastBid = null;
+      auction.hist.push(`Лидер вышел из игры`);
+      let rem = 0;
+      if (auction.phase === 'trade') {
+        const now = performance.now();
+        const cur = Math.max(0, auction.deadline - now);
+        rem = Math.max(AUCTION_LEADER_LEAVE_EXTEND, cur);
+        auction.deadline = now + rem;
+      }
+      if (MP) bc({ v: 'auc', ev: 'reset', id: auction.id, msg: 'Лидер вышел из игры', remaining: rem });
+      if (Modal_isOpen('auction')) aucRender();
+    }
+  }
+
   function botBidStep() {
     if (MP || !auction || auction.finished) return;
     if (auction.phase !== 'trade') return;
@@ -827,15 +1150,15 @@ const Board = (() => {
     if (!list.length) { body.innerHTML = `<div class="mail-empty">Пока пусто. Приглашения на аукционы появятся здесь.</div>`; return; }
     body.innerHTML = list.map(m => {
       const live = auction && auction.id === m.auctionId && !auction.finished;
+      if (!live && !m.read) m.read = true;
       const ago = new Date(m.time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-      return `<div class="mail-item ${(m.read || !live) ? 'read' : ''}" data-mail-id="${m.id}">
+      return `<div class="mail-item ${!live ? 'read' : ''}" data-mail-id="${m.id}">
         <div class="mi-title">Аукцион: ${esc(m.lotName)}</div>
-        <div class="mi-sub">Старт: ${m.startPrice} €${!live ? ' · завершён' : ''}</div><div class="mi-time">${ago}</div></div>`;
+        <div class="mi-sub">Старт: ${m.startPrice} €${!live ? ' · завершён' : ' · идёт'}</div><div class="mi-time">${ago}</div></div>`;
     }).join('');
     body.querySelectorAll('.mail-item').forEach(el => el.addEventListener('click', () => {
       const m = mailInbox.find(x => x.id === el.dataset.mailId); if (!m) return;
       const live = auction && auction.id === m.auctionId && !auction.finished;
-      m.read = true;
       if (live) { Modal.close('mailbox'); openAuctionPage(); } else { try { Sound.error(); } catch (e) {} }
       renderMailbox(); renderPlayers();
     }));
@@ -1029,6 +1352,28 @@ const Board = (() => {
           { lbl: b.name, val: r && r.cB === 'steal' ? 'УКРАЛ' : 'РАЗДЕЛИЛ', cls: r && r.cB === 'steal' ? 'res-lose' : 'res-win' },
           { lbl: 'Итог', val: text, cls: 'res-gold' }
         ];
+      } else if (test.id === 'airhockey') {
+        if (!r || !r.winner) {
+          title = 'ИВЕНТ: АЭРОХОККЕЙ';
+          rows = [
+            { lbl: 'Итог', val: r && r.tie ? 'Ничья' : 'Матч не завершён', cls: r && r.tie ? 'res-gold' : 'res-lose' },
+            { lbl: 'Счёт', val: r && r.score || '—', cls: 'res-gold' },
+            { lbl: 'Денежный перевод', val: 'Не производится', cls: 'res-gold' }
+          ];
+        } else {
+          const w = r.winner, l = r.loser;
+          const netWorth = Math.max(0, totalWorth(l.id));
+          const targetTransfer = Math.round(netWorth * 0.15);
+          const steal = Math.min(Math.max(0, l.money), targetTransfer);
+          l.money -= steal; w.money += steal;
+          title = 'ИВЕНТ: АЭРОХОККЕЙ';
+          rows = [
+            { lbl: 'Победитель', val: w.name, cls: 'res-win' },
+            { lbl: 'Проигравший', val: l.name, cls: 'res-lose' },
+            { lbl: 'Счёт', val: r.score || '—', cls: 'res-gold' },
+            { lbl: 'Забрано (15%)', val: steal + ' €', cls: 'res-gold' }
+          ];
+        }
       } else {
         const tr = parts[0];
         const v = (r && r.victim) || Game.players.find(p => p && p.id !== tr.id) || tr;
@@ -1073,13 +1418,10 @@ const Board = (() => {
   });
   async function runEventHost(forced) {
     const alive = Game.players.filter(p => p.alive);
-    console.log(`[Board] runEventHost: alive=${alive.length}, forced=${forced || '-'}`);
     if (alive.length < 2) { console.warn('[Board] not enough alive players, skip event'); return; }
     const plan = FX.planEvent(alive, forced);
-    console.log('[Board] event plan:', plan);
     evReset(); bc({ v: 'evplan', plan });
     await FX.runEvent({ plan, io: makeIO(), finish: hostFinish });
-    console.log('[Board] event finished');
   }
   async function runEventClient(plan) { evReset(); await FX.runEvent({ plan, io: makeIO(), finish: clientFinish }); }
 
@@ -1099,32 +1441,29 @@ const Board = (() => {
     busy = true; setRoll(false); stopTurnTimer(); bc({ v: 'turn', pid: -1 });
     const my = session; dir = 1;
     const thisTurn = turnNo;
-    console.log(`[Board] roll start: turn=${thisTurn}, player=${cur}`);
     try {
       const p = Game.players[cur];
-      if (!p || !p.alive) { console.warn('[Board] no player or dead'); next(); return; }
+      if (!p || !p.alive) { next(); return; }
 
       let skipMove = false;
 
-      // 1) Тюрьма
       if (inJail[p.id]) {
         await jailSequence(p);
         if (my !== session) return;
-        if (inJail[p.id]) {
-          glog(`${p.name}: ход пропущен (тюрьма)`);
+        if (!p.alive) { skipMove = true; }
+        else if (inJail[p.id]) {
+          glog(`${p.name}: остаётся в тюрьме, ход пропущен`);
           skipMove = true;
         }
       }
 
-      // 2) Пропуск хода (только если не в тюрьме)
       if (!skipMove && skipNext[p.id]) {
         skipNext[p.id] = false;
         glog(`${p.name}: пропускает ход`);
         skipMove = true;
       }
 
-      // 3) Обычный бросок
-      if (!skipMove) {
+      if (!skipMove && Game.players[cur].alive) {
         let rdir = 1;
         if (reverseNext[p.id]) { reverseNext[p.id] = false; rdir = -1; glog(`${p.name}: ходит назад (1 ход)`); }
 
@@ -1141,24 +1480,16 @@ const Board = (() => {
         V({ v: 'sumclear' });
       }
 
-      // Проверка банкротств/кредитов — всегда
       checkBankrupt(); tickLoans();
 
-      // 4) Ждём аукцион, но не дольше AUCTION_WAIT_MAX
       if (auction) {
         let waited = 0;
         while (auction && waited < AUCTION_WAIT_MAX) { await sleep(300); waited += 300; }
         if (auction) { console.warn('[Board] auction stuck, forcing null'); auction = null; }
       }
 
-      // 5) Проверка ивента — ВСЕГДА, вне зависимости от skip/jail
-      console.log(`[Board] turn=${thisTurn}, EVENT_EVERY=${EVENT_EVERY}, check=${thisTurn > 0 && thisTurn % EVENT_EVERY === 0 && !over ? 'TRIGGER' : 'skip'}`);
       if (thisTurn > 0 && thisTurn % EVENT_EVERY === 0 && !over) {
-        try {
-          await runEventHost();
-        } catch (err) {
-          console.error('[Board] event error:', err);
-        }
+        try { await runEventHost(); } catch (err) { console.error('[Board] event error:', err); }
         if (my !== session) return;
       }
 
@@ -1177,7 +1508,6 @@ const Board = (() => {
     do { n = (n + 1) % Game.players.length; if (++guard > Game.players.length * 2) { gameOver(alive[0]); return; } } while (!Game.players[n].alive);
     cur = n; turnNo++; busy = false; dir = 1;
     upgraded = upgraded.map(() => false);
-    console.log(`[Board] next turn: turnNo=${turnNo}, cur=${cur}`);
     renderPlayers();
     if (auction) { turnBlocked = true; setRoll(false); return; }
     beginTurn();
@@ -1185,7 +1515,6 @@ const Board = (() => {
   function gameOver(w) {
     if (over) return;
     over = true; busy = true; stopTurnTimer();
-    console.log('[Board] gameOver, winner=', w ? w.name : 'none');
     bc({ v: 'turn', pid: -1 }); bc({ v: 'gameover', w: w ? w.id : -1 });
     showGameOver(w ? w.id : -1);
   }
@@ -1213,14 +1542,16 @@ const Board = (() => {
     chips = []; Q = Array.from({ length: N }, () => []); yieldSet = new Set();
     dir = 1; turnNo = 1; cur = 0; over = false; busy = false;
     const z = v => Array(n).fill(v);
-    skipNext = z(false); inJail = z(false); jailFee = z(JAIL_BASE); loans = z(null); reverseNext = z(false); upgraded = z(false);
-    auction = null; auctionSeq = 0; turnBlocked = false; chatState = {}; chatUnread = {}; mailInbox = []; forms = {};
-    pend = {}; rentLocal = rentCancel = buyCancel = jailCancel = null; lastMoney = []; devDice = null;
+    skipNext = z(false); inJail = z(false); jailFee = z(JAIL_BASE); jailAttempts = z(0);
+    loans = z(null); reverseNext = z(false); upgraded = z(false);
+    auction = null; auctionSeq = 0; turnBlocked = false; aucSyncTick = 0;
+    chatState = {}; chatUnread = {}; mailInbox = []; forms = {};
+    pend = {}; rentLocal = rentCancel = buyCancel = jailCancel = null; sellCancel = null; sellPl = null;
+    lastMoney = []; devDice = null;
     vq = Promise.resolve(); monoQueue = Promise.resolve(); evReset();
     for (const k in monopolyShown) delete monopolyShown[k];
     document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));
     resetRollBtn();
-    console.log('[Board] resetCommon: turnNo=1, players=', n);
   }
   function initPlayers(pl) {
     Game.players = pl;
@@ -1258,10 +1589,11 @@ const Board = (() => {
     busy = false;
     stopTurnTimer();
   }
-  const IMMEDIATE = new Set(['ev', 'sfx', 'chat', 'form', 'formst', 'ask', 'askCancel', 'auc', 'turn', 'toast']);
+  const IMMEDIATE = new Set(['ev', 'evplan', 'sfx', 'chat', 'form', 'formst', 'ask', 'askCancel', 'auc', 'turn', 'toast']);
   function doImm(d) {
     switch (d.v) {
       case 'ev': evEmit(d.k, d, d.from); break;
+      case 'evplan': runEventClient(d.plan).catch(e => console.error('runEventClient:', e)); break;
       case 'sfx': SfxPanel.play(d.src); break;
       case 'chat': rxChat(d.from, d.text); break;
       case 'form': rxForm(d.from, d.id, d.form); break;
@@ -1285,6 +1617,7 @@ const Board = (() => {
       case 'bid': placeBid(seat, d.amount); break;
       case 'upgrade': doUpgrade(seat, +d.idx); break;
       case 'downgrade': doDowngrade(seat, +d.idx); break;
+      case 'sellbiz': doSellBiz(seat, +d.idx); break;
       case 'auction': doAuctionFromBiz(seat, +d.idx); break;
       case 'loan': doLoan(seat); break;
       case 'bankrupt': doBankruptManual(seat); break;
@@ -1296,6 +1629,9 @@ const Board = (() => {
       case 'resync': {
         try { bc({ v: 'state', ...snapshot() }, [seat]); } catch (e) {}
         if (!busy && !over && cur === seat) bc({ v: 'turn', pid: cur, ms: TURN_MS }, [seat]);
+        if (auction && !auction.finished) {
+          try { bc({ v: 'auc', ev: 'sync', id: auction.id, phase: auction.phase, leader: auction.leader, lastBid: auction.lastBid, remaining: Math.max(0, auction.deadline - performance.now()), finished: auction.finished, result: auction.result }, [seat]); } catch (e) {}
+        }
         break;
       }
     }
@@ -1324,6 +1660,7 @@ const Board = (() => {
       if (busy) return;
       busy = true;
       const io = makeIO();
+      delete evLast['ah:opening-result'];
       const p1 = Game.players[p1Id];
       const p2 = Game.players[p2Id];
 
@@ -1332,7 +1669,7 @@ const Board = (() => {
       scene.classList.add('on');
       ['L-frame', 'L-table', 'L-draw', 'L-result'].forEach(id => g(id).classList.remove('on'));
       g('L-game').classList.add('on');
-      ['ev-duel', 'ev-steal', 'ev-traitor'].forEach(id => g(id).classList.remove('on'));
+      ['ev-duel', 'ev-steal', 'ev-traitor', 'ev-airhockey'].forEach(id => g(id).classList.remove('on'));
 
       let testObj = { id: type };
       let parts = type === 'traitor' ? [p1] : [p1, p2];
@@ -1340,12 +1677,14 @@ const Board = (() => {
       if (type === 'duel') g('ev-duel').classList.add('on');
       if (type === 'steal') g('ev-steal').classList.add('on');
       if (type === 'traitor') g('ev-traitor').classList.add('on');
+      if (type === 'airhockey') g('ev-airhockey').classList.add('on');
 
       setTimeout(async () => {
         try {
           let r;
           if (type === 'duel') r = await Events.duel(p1, p2, io);
           else if (type === 'steal') r = await Events.stealShare(p1, p2, io);
+          else if (type === 'airhockey') r = await Events.airHockey(p1, p2, io);
           else if (type === 'traitor') r = await Events.traitor(p1, Game.players.filter(x => x.id !== p1Id), io);
 
           scene.classList.remove('on');
@@ -1353,6 +1692,7 @@ const Board = (() => {
           if (type === 'duel') g('ev-duel').classList.remove('on');
           if (type === 'steal') g('ev-steal').classList.remove('on');
           if (type === 'traitor') g('ev-traitor').classList.remove('on');
+          if (type === 'airhockey') g('ev-airhockey').classList.remove('on');
 
           hostFinish(testObj, parts, r);
         } catch (e) {
@@ -1381,8 +1721,8 @@ const Board = (() => {
     takeAll(pid) { owner.forEach((o, i) => { if (o === pid) { setOwner(i, null); stars[i] = 0; renderStars(i); } }); renderPlayers(); },
     money(pid, mode, v) { const p = Game.players[pid]; if (mode === 'add') p.money += v; else if (mode === 'sub') p.money -= v; else p.money = v; renderPlayers(); },
     jailFx(pid) { return jailAnimVis(Game.players[pid].name); },
-    jailIn(pid) { inJail[pid] = true; jailFee[pid] = JAIL_BASE; renderPlayers(); },
-    jailOut(pid) { inJail[pid] = false; renderPlayers(); },
+    jailIn(pid) { inJail[pid] = true; jailAttempts[pid] = 0; jailFee[pid] = JAIL_BASE; renderPlayers(); },
+    jailOut(pid) { inJail[pid] = false; jailAttempts[pid] = 0; renderPlayers(); },
     monoTest(pid, gr) { return monopolyFx(pid, GROUPS[gr]); }
   };
 

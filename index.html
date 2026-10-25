@@ -2,6 +2,15 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data:;
+  media-src 'self' data:;
+  font-src 'self' data:;
+  connect-src 'self' ws: wss:;
+">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nazay's Monopoly</title>
 <link rel="stylesheet" href="style.css">
@@ -24,7 +33,7 @@
     <div class="lobby-card">
       <i class="bg-ring bg-ring-a reveal" style="--d:.2s"></i>
       <i class="bg-ring bg-ring-b reveal" style="--d:.6s"></i>
-      <img class="statue reveal" style="--d:.9s" src="img/statue.png" alt="" onerror="this.remove()">
+      <img class="statue reveal" style="--d:.9s" src="img/statue.png" alt="" data-errem>
       <div class="brand reveal" style="--d:.5s">Nazay's Monopoly</div>
 
       <nav class="menu">
@@ -99,6 +108,7 @@
       <div class="tabs">
         <button class="btn tab on" data-t="sound">Звук</button>
         <button class="btn tab" data-t="profile">Профиль</button>
+        <button class="btn tab" data-t="updates">Обновления</button>
         <button class="btn tab" data-t="dev">DEV</button>
       </div>
       <div class="pane on" data-p="sound">
@@ -114,6 +124,15 @@
         <input class="frm-input" id="pf-name" maxlength="16" placeholder="Например, Nazay" autocomplete="off">
         <button class="btn main pf-save" id="pf-save">Сохранить</button>
         <p class="err" id="pf-msg"></p>
+      </div>
+      <div class="pane" data-p="updates">
+        <p class="dim">Обновления скачиваются автоматически и применяются при следующем запуске игры — вручную ничего делать не нужно. Если обновление уже загружено, оно установится при выходе в меню или при закрытии игры.</p>
+        <label class="frm-label">Текущая версия</label>
+        <p class="dim"><b id="upd-ver">—</b></p>
+        <label class="frm-label">Статус</label>
+        <p class="dim" id="upd-status">Не проверялось</p>
+        <button class="btn main pf-save" id="upd-check">Проверить сейчас</button>
+        <button class="btn pf-save" id="upd-install" style="display:none;margin-top:.5rem">Установить и перезапустить</button>
       </div>
       <div class="pane" data-p="dev">
         <p class="dim">Введите пароль, чтобы запустить одиночный режим с DEV-панелью (в игре — клавиша Shift).</p>
@@ -131,21 +150,22 @@
         <button class="btn tab on" data-t="upd">Обновления</button>
         <button class="btn tab" data-t="dev">Разработчик</button>
       </div>
-      <!-- СПИСОК ОБНОВЛЕНИЙ СЛЕВА И ОПИСАНИЕ СПРАВА -->
       <div class="pane on split" data-p="upd">
         <aside class="side" id="upd-list">
-          <div class="upd-item active" data-v="1.2">v1.2 beta</div>
+          <div class="upd-item active" data-v="1.2.5">v1.2.5 beta</div>
+          <div class="upd-item" data-v="1.2">v1.2 beta</div>
           <div class="upd-item" data-v="1.1">v1.1 beta</div>
           <div class="upd-item" data-v="1.0">v1.0.0</div>
         </aside>
         <div class="content" id="upd-content">
-          <h3>Version 1.2 beta</h3>
+          <h3>Version 1.2.5 beta</h3>
           <p class="dim">Что нового:</p>
           <ul class="upd-ul dim">
-            <li>Исправлен баг рассинхрона хоста и игроков, при котором из ивента выходил только хост.</li>
-            <li>Добавлена оптимизация подключения: автопереподключение и устойчивость к разрывам связи.</li>
-            <li>Исправлен баг с бесконечной стрельбой в дуэли (спам шаров).</li>
-            <li>Улучшена стабильность сетевого соединения.</li>
+            <li>Добавлен ивент «Аэрохоккей».</li>
+            <li>Новые дуэли.</li>
+            <li>Фикс мелких багов.</li>
+            <li>Фикс аукционов.</li>
+            <li>Фикс тюрьмы.</li>
           </ul>
         </div>
       </div>
@@ -416,6 +436,21 @@
     </div>
   </div>
 
+  <div class="overlay" id="sell">
+    <div class="modal small">
+      <h3>Нужно оплатить</h3>
+      <p class="dim" id="sell-desc">У вас недостаточно наличных. Продайте бизнесы или снимите звёзды, чтобы покрыть долг.</p>
+      <div class="sell-total">
+        Баланс: <b id="sell-balance">0 €</b> · Нужно: <b id="sell-need">0 €</b>
+      </div>
+      <div class="sell-list" id="sell-list"></div>
+      <div class="buy-actions">
+        <button class="btn main" id="sell-done" disabled>Готово</button>
+        <button class="btn" id="sell-bankrupt">Обанкротиться</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="gameover">
     <div class="modal small">
       <h3 id="go-title">Игра окончена</h3>
@@ -435,7 +470,7 @@
     </div>
   </div>
 
-    <aside class="drawer dev" id="dev-panel">
+  <aside class="drawer dev" id="dev-panel">
     <div class="dr-head"><span>DEV · Панель разработчика</span><span class="dr-hint">Shift — закрыть</span></div>
     <div class="dr-body">
       <section><h4>Игрок</h4><select id="dv-player"></select></section>
@@ -454,10 +489,11 @@
           <select id="dv-ev-p1"></select>
           <select id="dv-ev-p2"></select>
         </div>
-        <div class="dv-grid three">
+        <div class="dv-grid">
           <button class="btn" data-a="ev-direct-duel">Дуэль</button>
           <button class="btn" data-a="ev-direct-steal">Делить</button>
           <button class="btn" data-a="ev-direct-traitor">Предатель</button>
+          <button class="btn" data-a="ev-direct-airhockey">Аэрохоккей</button>
         </div>
       </section>
       <section>
@@ -553,6 +589,15 @@
       </div>
       <div class="sc-layer sc-sub" id="ev-steal"><div class="steal-stage"></div></div>
       <div class="sc-layer sc-sub" id="ev-traitor"><div class="traitor-stage"></div></div>
+      <div class="sc-layer sc-sub" id="ev-airhockey">
+        <div class="airhockey-stage">
+          <div class="ah-hud" id="ah-hud"></div>
+          <div class="ah-field-wrap">
+            <canvas id="ah-canvas"></canvas>
+          </div>
+          <div class="ah-hint" id="ah-hint"></div>
+        </div>
+      </div>
     </div>
 
     <div class="sc-layer" id="L-result">

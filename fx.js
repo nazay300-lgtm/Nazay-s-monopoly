@@ -6,18 +6,20 @@ const FX = (() => {
   const T = {
     SCENE_IN: 1400, SCENE_OUT: 1800, FADE: 1800,
     STAR_FLY: 3000, STAR_PAUSE: 600, STAR_WHITE_AT: 1200, FLASH_IN: 1400, FLASH_OUT: 2200,
-    TEST_SELECT: 10000, DIM_HOLD: 10000, ARROW_SPIN: 10000, ARROW_GAP: 1800, DRAW_HOLD: 10000, RESULT_HOLD: 6000
+    TEST_SELECT: 10000, DIM_HOLD: 10000, ARROW_SPIN: 10000, ARROW_GAP: 1800, DRAW_HOLD: 10000, RESULT_HOLD: 5000
   };
 
   const TESTS = [
     { id: 'duel', label: 'ДУЭЛЬ', icon: '⚔', need: 2,
-      desc: 'WASD — движение, ЛКМ — огненный шар. 3 жизни. Победитель забирает 15% состояния проигравшего.' },
+      desc: 'WASD — движение, ЛКМ — огненный шар. 2 жизни. 2 минуты. Победитель забирает 15% состояния проигравшего.' },
     { id: 'steal', label: 'УКРАСТЬ / ДЕЛИТЬ', icon: '💰', need: 2,
       desc: 'Делят 500 €. Оба разделили — по 250 €. Один украл — забирает все 500 €. Оба украли — никто ничего не получает.' },
     { id: 'traitor', label: 'ПРЕДАТЕЛЬ', icon: '🗡', need: 1,
-      desc: 'Предатель забирает 15% кошелька у выбранного им игрока.' }
+      desc: 'Предатель забирает 15% кошелька у выбранного им игрока.' },
+    { id: 'airhockey', label: 'АЭРОХОККЕЙ', icon: '🏒', need: 2,
+      desc: 'Забить первым 3 гола за 5 минут. Двигайте мышью — фишка следует за курсором. Победитель забирает 15% состояния проигравшего.' }
   ];
-  const LAYERS = ['L-star', 'L-dim', 'L-draw', 'L-table', 'L-frame', 'L-result', 'L-game', 'ev-duel', 'ev-steal', 'ev-traitor'];
+  const LAYERS = ['L-star', 'L-dim', 'L-draw', 'L-table', 'L-frame', 'L-result', 'L-game', 'ev-duel', 'ev-steal', 'ev-traitor', 'ev-airhockey'];
   let running = false;
 
   function lay(id, on, ms = T.FADE) { const e = g(id); e.style.setProperty('--t', ms + 'ms'); e.classList.toggle('on', on); }
@@ -37,7 +39,7 @@ const FX = (() => {
     await sleep(k.white);
     flash.style.setProperty('--t', k.fin + 'ms'); flash.classList.add('on');
     await sleep(k.fin + 100);
-    try { swap(); } catch (e) { console.error('starPass swap:', e); }
+    try { await swap(); } catch (e) { console.error('starPass swap:', e); }
     star.className = 'sc-star'; star.style.animationDuration = '';
     flash.style.setProperty('--t', k.fout + 'ms'); flash.classList.remove('on');
     await sleep(k.fout);
@@ -137,7 +139,7 @@ const FX = (() => {
   }
   const chipHtml = (p, size) => `<div class="draw-p"><div class="ev-chip" style="--c:${p.color};--sz:${size}px"><span class="ev-e">${p.e}</span></div><div class="nm" style="color:${p.color}">${esc(p.name)}</div></div>`;
   function fillDraw(test, parts) {
-    const sep = test.id === 'duel' ? 'VS' : test.id === 'steal' ? '&' : '·', size = parts.length > 2 ? 86 : 108;
+    const sep = test.id === 'duel' ? 'VS' : test.id === 'steal' ? '&' : test.id === 'airhockey' ? '🏒' : '·', size = parts.length > 2 ? 86 : 108;
     g('draw-kicker').textContent = 'РЕЗУЛЬТАТ ЖЕРЕБЬЁВКИ';
     g('draw-players').innerHTML = parts.map((p, i) => (i ? `<div class="draw-vs">${sep}</div>` : '') + chipHtml(p, size)).join('');
     g('draw-test').textContent = `${test.icon}  ${test.label}`; g('draw-desc').textContent = test.desc;
@@ -158,7 +160,6 @@ const FX = (() => {
     g('ev-sub').textContent = ''; g('ev-sub').style.opacity = ''; g('draw-players').innerHTML = '';
   }
 
-  /* opts: { plan, io, finish(test, parts, result) → {title, rows} } */
   async function runEvent(opts) {
     if (running) return;
     running = true;
@@ -185,8 +186,6 @@ const FX = (() => {
 
       lay('L-frame', false, T.FADE); lay('L-game', true, T.FADE); lay('ev-' + test.id, true, T.FADE);
 
-      // Внутренний ивент с ЖЁСТКИМ таймаутом — если дуэль/steal/traitor
-      // по какой-то причине не резолвятся, сцена всё равно закроется.
       let r;
       try {
         if (test.id === 'duel') {
@@ -199,6 +198,11 @@ const FX = (() => {
             Events.stealShare(parts[0], parts[1], io),
             sleep(90000).then(() => ({ cA: 'share', cB: 'share', text: 'Время истекло' }))
           ]);
+        } else if (test.id === 'airhockey') {
+          r = await Promise.race([
+            Events.airHockey(parts[0], parts[1], io),
+            sleep(420000).then(() => ({ winner: null, loser: null, score: null }))
+          ]);
         } else {
           r = await Promise.race([
             Events.traitor(parts[0], all.filter(p => p.id !== parts[0].id), io),
@@ -210,8 +214,6 @@ const FX = (() => {
         r = { winner: null, loser: null, steal: 0 };
       }
 
-      // opts.finish — с ЖЁСТКИМ таймаутом. Если хост/клиент не смогли
-      // собрать результат, сцена всё равно закроется через 15 секунд.
       let out;
       try {
         out = await Promise.race([
@@ -229,10 +231,12 @@ const FX = (() => {
         };
       }
 
-      await starPass(() => {
-        ['L-game', 'L-frame', 'L-draw', 'L-table', 'ev-duel', 'ev-steal', 'ev-traitor'].forEach(id => layNow(id, false));
-        fillResult(out.title, out.rows); layNow('L-result', true);
-      });
+      const swapToResult = () => {
+        ['L-game', 'L-frame', 'L-draw', 'L-table', 'ev-duel', 'ev-steal', 'ev-traitor', 'ev-airhockey'].forEach(id => layNow(id, false));
+        fillResult(out.title, out.rows);
+        layNow('L-result', true);
+      };
+      await starPass(swapToResult);
       await sleep(T.RESULT_HOLD);
 
       try { Board.renderPlayers(); } catch (e) {}
@@ -245,7 +249,6 @@ const FX = (() => {
     } finally { running = false; }
   }
 
-  /* DEV: только звезда */
   async function testStar() {
     if (running) return; running = true;
     const sc = g('ev-scene');
@@ -266,5 +269,5 @@ const FX = (() => {
     } finally { running = false; }
   }
 
-  return { runEvent, planEvent, testStar, transition, TESTS };
+  return { runEvent, planEvent, testStar, transition, starPass, TESTS };
 })();

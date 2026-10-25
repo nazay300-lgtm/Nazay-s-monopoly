@@ -72,8 +72,9 @@ const SfxPanel = (() => {
   addEventListener('keydown', e => {
     if (e.key !== 'Tab') return;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-    if (!document.getElementById('game').classList.contains('active')) return;
+    // Блокируем переключение фокуса браузером (перебирание кнопок)
     e.preventDefault();
+    if (!document.getElementById('game').classList.contains('active')) return;
     api.toggle();
   });
 

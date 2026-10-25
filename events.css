@@ -185,9 +185,7 @@
 .duel-p:last-child{justify-content:flex-end}
 .duel-p .duel-dot{width:14px;height:14px;border-radius:50%;box-shadow:0 0 12px currentColor;flex:none}
 .duel-name{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;max-width:180px}
-/* Старое поле с сердцами (сохранено на случай совместимости) */
 .duel-hp{color:#d43030;letter-spacing:.25em;font-size:1.1rem}
-/* Шкала здоровья: одна длинная полоса с заливкой в цвет игрока */
 .duel-hp-bar{flex:1;min-width:140px;max-width:300px;height:16px;border-radius:10px;position:relative;
   background:linear-gradient(180deg,rgba(0,0,0,.75),rgba(0,0,0,.55));
   border:1px solid rgba(212,162,74,.45);
@@ -203,126 +201,463 @@
 .duel-hp-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   font-family:"GameFont","Montserrat",sans-serif;font-size:.7rem;font-weight:700;letter-spacing:.1em;
   color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.9);pointer-events:none}
-/* Хит-маркер: вспышка + крестик */
-.duel-hit-flash{position:absolute;inset:0;background:#ff2a2a;opacity:0;pointer-events:none;z-index:8;
-  transition:opacity .12s ease}
-.duel-hit-flash.on{opacity:.35}
-.duel-hit-cross{position:absolute;width:44px;height:44px;pointer-events:none;z-index:9;
-  transform:translate(-50%,-50%);opacity:0;transition:opacity .4s ease}
-.duel-hit-cross.on{opacity:1;animation:hitCross .4s cubic-bezier(.22,1,.36,1)}
-.duel-hit-cross::before,.duel-hit-cross::after{content:"";position:absolute;left:50%;top:50%;
-  background:#ff3b3b;box-shadow:0 0 10px #ff3b3b}
-.duel-hit-cross::before{width:36px;height:4px;transform:translate(-50%,-50%) rotate(45deg)}
-.duel-hit-cross::after{width:36px;height:4px;transform:translate(-50%,-50%) rotate(-45deg)}
-@keyframes hitCross{0%{transform:translate(-50%,-50%) scale(.5)}60%{transform:translate(-50%,-50%) scale(1.15)}100%{transform:translate(-50%,-50%) scale(1)}}
 
-#duel-canvas{flex:1;width:100%;min-height:0;border:1px solid rgba(212,162,74,.4);border-radius:4px;
-  background:linear-gradient(180deg,#0d0d14 0%,#151522 100%);box-shadow:inset 0 0 60px rgba(0,0,0,.9);cursor:crosshair}
-.duel-hint{text-align:center;font-family:"GameFont","Montserrat",sans-serif;font-size:.8rem;
-  letter-spacing:.3em;color:rgba(212,162,74,.7);text-transform:uppercase}
+/* ---- Вспышка урона в дуэли (завершенный блок) ---- */
+.duel-hit-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(212, 48, 48, 0.4) 0%, transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 10;
+}
 
-/* ---- Украсть или разделить ---- */
-.steal-stage{position:relative;width:min(680px,94vw);padding:2.4rem;text-align:center;color:#e8e2d4;
-  background:
-    repeating-linear-gradient(0deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
-    repeating-linear-gradient(90deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
-    radial-gradient(ellipse at 50% 50%,#1a1a22 0%,#0a0a0e 80%);
-  border:1px solid rgba(212,162,74,.4);border-radius:6px;
-  box-shadow:0 0 0 1px rgba(212,162,74,.15) inset,0 30px 80px rgba(0,0,0,.9)}
-.steal-kicker{font-family:"GameFont","Montserrat",sans-serif;font-size:.75rem;letter-spacing:.5em;
-  color:rgba(212,162,74,.8);text-transform:uppercase;margin-bottom:.8rem}
-.steal-title{font-family:"TitleFont","Anton",sans-serif;font-size:clamp(1.4rem,2.4vw,2rem);letter-spacing:.12em;
-  text-transform:uppercase;color:#f0e6d2;margin-bottom:1rem;text-shadow:0 0 25px rgba(212,162,74,.45)}
-.steal-pair{display:flex;gap:1rem;justify-content:center;align-items:center;margin-bottom:1.6rem;
-  font-family:"TitleFont","Anton",sans-serif;letter-spacing:.12em;text-transform:uppercase;font-size:1.1rem}
-.steal-pair i{font-style:normal;color:#d4a24a}
-.steal-actions{display:flex;gap:1.2rem;justify-content:center;animation:evIn .8s cubic-bezier(.22,1,.36,1)}
-.steal-actions .btn{font-family:"TitleFont","Anton",sans-serif;font-size:1.05rem;letter-spacing:.2em;
-  text-transform:uppercase;padding:1.1rem 2.2rem;background:rgba(212,162,74,.08);
-  border:1px solid rgba(212,162,74,.6);color:#e8e2d4;border-radius:4px;cursor:pointer;
-  transition:all .5s cubic-bezier(.22,1,.36,1)}
-.steal-actions .btn:hover{background:rgba(212,162,74,.2);transform:translateY(-2px);box-shadow:0 0 30px rgba(212,162,74,.35)}
-.steal-actions .btn.main{background:linear-gradient(135deg,#ffe98a,#d4a24a);color:#0e0e12;border:none}
-.steal-wait{margin-top:1.6rem;font-family:"GameFont","Montserrat",sans-serif;letter-spacing:.3em;
-  color:rgba(212,162,74,.9);text-transform:uppercase;font-size:.85rem;animation:evIn .8s cubic-bezier(.22,1,.36,1)}
-.steal-timer{font-family:"TitleFont","Anton",sans-serif;font-size:4rem;color:#d4a24a;margin-top:.6rem;
-  text-shadow:0 0 30px rgba(212,162,74,.8)}
-.steal-result{margin-top:1.6rem;font-size:1.05rem;line-height:1.9;animation:evIn .9s cubic-bezier(.22,1,.36,1)}
-.steal-result .sr-choices{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.4rem 0}
-.steal-result .sr-card{padding:1rem;border:1px solid rgba(212,162,74,.35);border-radius:4px;background:rgba(212,162,74,.05)}
-.steal-result .sr-card .sr-name{font-family:"TitleFont","Anton",sans-serif;letter-spacing:.12em;font-size:.95rem;
-  text-transform:uppercase;margin-bottom:.4rem}
-.steal-result .sr-card .sr-choice{font-size:1.4rem}
-.steal-result .sr-card.stole .sr-choice{color:#d43030}
-.steal-result .sr-card.shared .sr-choice{color:#3ddc84}
+.duel-hit-flash.active {
+  animation: duelHitFlashAnim 0.3s ease-out;
+}
 
-/* ---- Предатель ---- */
-.traitor-stage{position:relative;width:min(1000px,94vw);padding:2rem;text-align:center;color:#e8e2d4;
-  background:
-    repeating-linear-gradient(0deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
-    repeating-linear-gradient(90deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
-    radial-gradient(ellipse at 50% 50%,#1a1a22 0%,#0a0a0e 80%);
-  border:1px solid rgba(212,162,74,.4);border-radius:6px;
-  box-shadow:0 0 0 1px rgba(212,162,74,.15) inset,0 30px 80px rgba(0,0,0,.9)}
-.traitor-kicker{font-family:"GameFont","Montserrat",sans-serif;font-size:.75rem;letter-spacing:.5em;
-  color:rgba(212,162,74,.8);text-transform:uppercase;margin-bottom:.6rem}
-.traitor-title{font-family:"TitleFont","Anton",sans-serif;font-size:clamp(1.4rem,2.2vw,1.9rem);letter-spacing:.12em;
-  text-transform:uppercase;color:#f0e6d2;margin-bottom:1.8rem}
-.traitor-list{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
-.traitor-card{padding:1.2rem 1.4rem;min-width:180px;cursor:pointer;border-radius:4px;
-  background:rgba(212,162,74,.04);border:1px solid rgba(212,162,74,.3);
-  transition:all .5s cubic-bezier(.22,1,.36,1);animation:evIn .8s cubic-bezier(.22,1,.36,1)}
-.traitor-card:hover{transform:translateY(-4px);border-color:#d4a24a;box-shadow:0 0 30px rgba(212,162,74,.35)}
-.traitor-card .tc-name{font-family:"TitleFont","Anton",sans-serif;font-size:1.2rem;letter-spacing:.12em;
-  text-transform:uppercase;margin-bottom:.6rem}
-.traitor-card .tc-info{font-size:.85rem;color:rgba(232,226,212,.7);line-height:1.7}
-.traitor-card .tc-info b{color:#d4a24a}
-.traitor-result{margin-top:1.8rem;font-family:"TitleFont","Anton",sans-serif;font-size:1.2rem;
-  letter-spacing:.1em;color:#d4a24a;text-transform:uppercase;animation:evIn .9s cubic-bezier(.22,1,.36,1)}
+@keyframes duelHitFlashAnim {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
 
-/* ===== 7. ИТОГ ===== */
-.result-stage{position:relative;width:min(760px,94vw);padding:2.6rem;text-align:center;color:#e8e2d4;
-  background:
-    repeating-linear-gradient(0deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
-    repeating-linear-gradient(90deg,transparent 0 39px,rgba(212,162,74,.06) 39px 40px),
-    radial-gradient(ellipse at 50% 50%,#1a1a22 0%,#0a0a0e 80%);
-  border:1px solid rgba(212,162,74,.5);border-radius:6px;
-  box-shadow:0 0 0 1px rgba(212,162,74,.2) inset,0 0 80px rgba(212,162,74,.2),0 30px 80px rgba(0,0,0,.9)}
-.result-stage::before{content:"";position:absolute;top:12px;left:12px;width:40px;height:40px;
-  border:2px solid rgba(212,162,74,.6);border-right:none;border-bottom:none}
-.result-stage::after{content:"";position:absolute;bottom:12px;right:12px;width:40px;height:40px;
-  border:2px solid rgba(212,162,74,.6);border-left:none;border-top:none}
-.result-kicker{font-family:"GameFont","Montserrat",sans-serif;font-size:.75rem;letter-spacing:.5em;
-  color:rgba(212,162,74,.8);text-transform:uppercase;margin-bottom:.6rem}
-.result-title{font-family:"TitleFont","Anton",sans-serif;font-size:clamp(1.6rem,2.8vw,2.4rem);letter-spacing:.14em;
-  text-transform:uppercase;color:#f0e6d2;margin-bottom:1.6rem;text-shadow:0 0 30px rgba(212,162,74,.55)}
-.result-body{font-size:1.1rem;line-height:2}
-.result-body .res-row{display:flex;justify-content:space-between;gap:1.5rem;padding:.7rem 1rem;
-  border-bottom:1px solid rgba(212,162,74,.15);text-align:left}
-.result-body .res-row:last-child{border:none}
-.result-body .res-row .lbl{color:rgba(232,226,212,.7);font-family:"GameFont","Montserrat",sans-serif;
-  letter-spacing:.1em;text-transform:uppercase;font-size:.8rem;align-self:center}
-.result-body .res-row .val{font-family:"TitleFont","Anton",sans-serif;letter-spacing:.08em;font-size:1.1rem;text-align:right}
-.result-body .res-win{color:#3ddc84}
-.result-body .res-lose{color:#d43030}
-.result-body .res-gold{color:#d4a24a}
+/* ===== 7. АЭРОХОККЕЙ ===== */
+.airhockey-stage {
+  position: relative;
+  width: min(1200px, 94vw);
+  height: min(760px, 92vh);
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(ellipse at 50% 50%, #1a1a22 0%, #0a0a0e 80%);
+  border: 1px solid rgba(212,162,74,.25);
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(212,162,74,.1) inset, 0 30px 80px rgba(0,0,0,.9);
+  color: #e8e2d4;
+  overflow: hidden;
+}
 
-/* ===== 8. ЗВЕЗДА И ВСПЫШКА ===== */
-#L-star{z-index:50}
-.sc-star{position:absolute;left:50%;top:50%;color:#fff;font-size:clamp(34px,4.4vw,64px);line-height:1;opacity:0;
-  filter:drop-shadow(0 0 20px #fff) drop-shadow(0 0 40px rgba(255,255,255,.8));
-  transform:translate(-50%,-50%) scale(.5);will-change:transform,opacity}
-.sc-star.fly{animation:scFly 3s cubic-bezier(.22,1,.36,1) forwards}
-@keyframes scFly{
-  0%{opacity:0;transform:translate(calc(-50% - 62vw),calc(-50% - 62vh)) scale(.5) rotate(-360deg)}
-  15%{opacity:1}
-  100%{opacity:1;transform:translate(-50%,-50%) scale(.9) rotate(720deg)}}
-.sc-star.grow{animation:scGrow 2.6s cubic-bezier(.65,0,.35,1) forwards}
-@keyframes scGrow{
-  0%{opacity:1;transform:translate(-50%,-50%) scale(.9) rotate(720deg)}
-  100%{opacity:1;transform:translate(-50%,-50%) scale(45) rotate(900deg)}}
-.sc-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;
-  transition:opacity var(--t,1.4s) cubic-bezier(.4,0,.2,1)}
-.sc-flash.on{opacity:1}
+.ah-field-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+.ah-field-reveal .ah-field-wrap {
+  opacity: 1;
+}
+.ah-field-wrap canvas {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
 
-@media (prefers-reduced-motion:reduce){.ev-gear{animation:none}}
+.ah-hud {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  z-index: 10;
+  pointer-events: none;
+}
+.ah-p {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.ah-p.right {
+  flex-direction: row-reverse;
+}
+.ah-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  box-shadow: 0 0 12px currentColor;
+}
+.ah-score {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #d4a24a;
+  text-shadow: 0 0 15px rgba(212,162,74,0.8);
+}
+.ah-center-hud {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+.ah-timer {
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 2.5rem;
+  color: #fff;
+  letter-spacing: 0.1em;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+.ah-period {
+  font-family: "GameFont","Montserrat",sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.3em;
+  color: rgba(212,162,74,0.9);
+  text-transform: uppercase;
+}
+.ah-hint {
+  position: absolute;
+  bottom: 1rem;
+  width: 100%;
+  text-align: center;
+  font-family: "GameFont","Montserrat",sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.2em;
+  color: rgba(232,226,212,0.6);
+  text-transform: uppercase;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Opening Screen (Аэрохоккей) */
+.ah-opening-screen {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, #1a1a22 0%, #0a0a0e 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  padding: 2rem;
+  transition: opacity 1s ease;
+}
+.ah-gear {
+  position: absolute;
+  font-size: 10rem;
+  color: rgba(212,162,74,0.05);
+  animation: gearSpin 20s linear infinite;
+}
+.ah-gear-tl { top: -2rem; left: -2rem; }
+.ah-gear-tr { top: -2rem; right: -2rem; animation-direction: reverse; }
+.ah-gear-bl { bottom: -2rem; left: -2rem; animation-direction: reverse; }
+.ah-gear-br { bottom: -2rem; right: -2rem; }
+.ah-opening-kicker {
+  font-family: "GameFont","Montserrat",sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.5em;
+  color: rgba(212,162,74,0.8);
+  margin-bottom: 1rem;
+}
+.ah-opening-title {
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 3rem;
+  letter-spacing: 0.15em;
+  color: #f0e6d2;
+  margin-bottom: 3rem;
+  text-shadow: 0 0 30px rgba(212,162,74,0.4);
+}
+.ah-opening-panel {
+  display: flex;
+  align-items: center;
+  gap: 3rem;
+  margin-bottom: 3rem;
+}
+.ah-opening-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  opacity: 0.4;
+  transition: all 0.3s ease;
+  transform: scale(0.9);
+}
+.ah-opening-player.is-active {
+  opacity: 1;
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 20px var(--player-color));
+}
+.ah-opening-player.is-winner {
+  opacity: 1;
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 30px var(--player-color));
+}
+.ah-opening-token {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: var(--player-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  color: #fff;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+}
+.ah-opening-name {
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 1.5rem;
+  color: #fff;
+  letter-spacing: 0.1em;
+}
+.ah-opening-label {
+  font-family: "GameFont","Montserrat",sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: rgba(255,255,255,0.5);
+}
+.ah-opening-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+.ah-opening-orbit {
+  display: flex;
+  gap: 0.5rem;
+  color: #d4a24a;
+  font-size: 1.5rem;
+  animation: pulse 2s infinite;
+}
+.ah-opening-vs {
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 2.5rem;
+  color: #d4a24a;
+  text-shadow: 0 0 20px rgba(212,162,74,0.6);
+}
+.ah-opening-status {
+  font-family: "GameFont","Montserrat",sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.2em;
+  color: rgba(232,226,212,0.8);
+  text-align: center;
+}
+.ah-opening-winner-name {
+  color: #d4a24a;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.ah-opening-footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-family: "GameFont","Montserrat",sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.3em;
+  color: rgba(212,162,74,0.6);
+}
+.ah-opening-dot {
+  width: 4px; height: 4px;
+  background: #d4a24a;
+  border-radius: 50%;
+}
+
+/* Countdown */
+.ah-countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 10rem;
+  color: #fff;
+  text-shadow: 0 0 50px rgba(212,162,74,0.8);
+  z-index: 30;
+  pointer-events: none;
+}
+.ah-countdown.pop {
+  animation: countdownPop 0.5s ease-out;
+}
+@keyframes countdownPop {
+  0% { transform: scale(1.5); opacity: 0; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0; }
+}
+
+/* Goal Banner */
+.ah-goal-banner {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(10,10,14,0.85);
+  border: 1px solid #d4a24a;
+  border-radius: 12px;
+  padding: 1.5rem 4rem;
+  box-shadow: 0 0 40px rgba(212,162,74,0.3);
+  opacity: 0;
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 40;
+  pointer-events: none;
+}
+.ah-goal-banner.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.ah-goal-text {
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 4rem;
+  color: #d4a24a;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 20px rgba(212,162,74,0.6);
+}
+.ah-goal-sub {
+  font-family: "GameFont","Montserrat",sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.15em;
+  color: #fff;
+  text-transform: uppercase;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+/* ===== 8. КРАСТЬ / ДЕЛИТЬ ===== */
+.steal-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  text-align: center;
+  padding: 2rem;
+  background: radial-gradient(ellipse at 50% 50%, #1a1a22 0%, #0a0a0e 80%);
+  border: 1px solid rgba(212,162,74,.25);
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(212,162,74,.1) inset, 0 30px 80px rgba(0,0,0,.9);
+  min-width: 500px;
+}
+.steal-kicker, .traitor-kicker {
+  font-family: "GameFont","Montserrat",sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.5em;
+  color: rgba(212,162,74,0.8);
+}
+.steal-title, .traitor-title {
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.1em;
+  color: #f0e6d2;
+}
+.steal-pair {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 2rem;
+  text-transform: uppercase;
+}
+.steal-pair i {
+  color: #d4a24a;
+  font-style: normal;
+}
+.steal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.steal-actions .btn {
+  font-size: 1.2rem;
+  padding: 1rem 2rem;
+}
+.steal-wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(232,226,212,0.6);
+}
+.steal-timer {
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 3rem;
+  color: #d4a24a;
+}
+.sr-choices {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+.sr-card {
+  padding: 1.5rem 2rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(212,162,74,0.3);
+  min-width: 180px;
+}
+.sr-card.stole {
+  border-color: #d43030;
+  background: rgba(212,48,48,0.1);
+}
+.sr-card.shared {
+  border-color: #3ddc84;
+  background: rgba(61,220,132,0.1);
+}
+.sr-name {
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+.sr-choice {
+  font-family: "GameFont","Montserrat",sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  font-weight: bold;
+}
+
+/* ===== 9. ПРЕДАТЕЛЬ ===== */
+.traitor-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2rem;
+  background: radial-gradient(ellipse at 50% 50%, #1a1a22 0%, #0a0a0e 80%);
+  border: 1px solid rgba(212,162,74,.25);
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(212,162,74,.1) inset, 0 30px 80px rgba(0,0,0,.9);
+}
+.traitor-list {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.traitor-card {
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(212,162,74,0.3);
+  cursor: pointer;
+  transition: all 0.3s;
+  min-width: 140px;
+  text-align: center;
+}
+.traitor-card:hover {
+  background: rgba(214,176,118,0.15);
+  border-color: #d4a24a;
+  transform: translateY(-2px);
+}
+.tc-name {
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+.tc-info {
+  font-family: "GameFont","Montserrat",sans-serif;
+  font-size: 0.8rem;
+  color: rgba(232,226,212,0.6);
+}
+.traitor-result {
+  font-family: "TitleFont","Anton",sans-serif;
+  font-size: 1.5rem;
+  color: #d43030;
+  margin-top: 1rem;
+}

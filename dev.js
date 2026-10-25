@@ -62,6 +62,7 @@ const DevPanel = (() => {
       case 'ev-direct-duel': D.eventDirect('duel', +$('dv-ev-p1').value, +$('dv-ev-p2').value); say('Запуск дуэли'); break;
       case 'ev-direct-steal': D.eventDirect('steal', +$('dv-ev-p1').value, +$('dv-ev-p2').value); say('Запуск дележки'); break;
       case 'ev-direct-traitor': D.eventDirect('traitor', +$('dv-ev-p1').value, +$('dv-ev-p2').value); say('Запуск предателя'); break;
+      case 'ev-direct-airhockey': D.eventDirect('airhockey', +$('dv-ev-p1').value, +$('dv-ev-p2').value); say('Запуск аэрохоккея'); break;
       case 'm-add':      D.money(p, 'add', amt); say(`${name}: +${amt} €`); break;
       case 'm-sub':      D.money(p, 'sub', amt); say(`${name}: −${amt} €`); break;
       case 'm-set':      D.money(p, 'set', amt); say(`${name}: баланс ${amt} €`); break;
