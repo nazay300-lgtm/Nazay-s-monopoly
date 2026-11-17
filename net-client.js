@@ -66,11 +66,12 @@ const Net = (() => {
         sock.onmessage = ev => {
           let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
           if (settled) return;
+          if (!m || typeof m !== 'object' || Array.isArray(m)) return;
           if (m.t === 'joined') {
             settled = true;
             clearTimeout(tmo);
             ws = sock; myId = m.id; host = !!m.host; started = true;
-            sock.onmessage = e2 => { let x; try { x = JSON.parse(e2.data); } catch (e) { return; } emit(x.t, x); };
+            sock.onmessage = e2 => { let x; try { x = JSON.parse(e2.data); } catch (e) { return; } if (x && typeof x === 'object' && !Array.isArray(x) && typeof x.t === 'string') emit(x.t, x); };
             sock.onclose = () => {
               if (ws !== sock) return;
               ws = null;
