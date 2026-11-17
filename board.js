@@ -97,7 +97,7 @@ const Board = (() => {
   function toHost(d) { if (MP && !IS_HOST) Net.game(d); }
   const seatsExcept = (...ex) => Game.players.map(p => p.id).filter(i => i !== ME && !ex.includes(i));
 
-  const STICKY = new Set(['res', 'duel:end', 'steal:show', 'traitor:show', 'ah:end']);
+  const STICKY = new Set(['res', 'duel:end', 'steal:show', 'traitor:show', 'ah:opening-result', 'ah:end']);
   let evL = {}, evLast = {};
   const evOn = (k, fn) => { (evL[k] = evL[k] || new Set()).add(fn); if (STICKY.has(k) && evLast[k]) { const v = evLast[k]; setTimeout(() => fn(v.d, v.from), 0); } return () => evL[k] && evL[k].delete(fn); };
   const evEmit = (k, d, from) => { if (STICKY.has(k)) evLast[k] = { d, from }; (evL[k] ? [...evL[k]] : []).forEach(fn => fn(d, from)); };
@@ -263,7 +263,8 @@ const Board = (() => {
   function snapshot() {
     return { p: Game.players.map(p => [p.money, p.alive ? 1 : 0]), o: owner.slice(), s: stars.slice(),
       j: inJail.map(Boolean), l: loans.map(l => l ? { ...l } : null),
-      pos: chips.map(ch => ch.stop), cur, turnNo };
+      pos: chips.map(ch => ch.stop), skipNext: skipNext.slice(), reverseNext: reverseNext.slice(),
+      jailFee: jailFee.slice(), jailAttempts: jailAttempts.slice(), cur, turnNo };
   }
   function queueSync() { if (!MP || !IS_HOST || syncQueued) return; syncQueued = true; setTimeout(() => { syncQueued = false; bc({ v: 'state', ...snapshot() }); }, 30); }
   function applyState(s) {
@@ -271,11 +272,16 @@ const Board = (() => {
     s.o.forEach((o, i) => { if (owner[i] !== o) setOwner(i, o); });
     s.s.forEach((n, i) => { if (stars[i] !== n) { stars[i] = n; renderStars(i); } });
     inJail = s.j; loans = s.l.map(n => n ? (typeof n === 'object' ? { ...n } : { amount: 750, turnsLeft: n }) : null);
-    if (Array.isArray(s.pos) && s.pos.length === chips.length) {
+    if (Array.isArray(s.pos) && s.pos.length === chips.length &&
+      s.pos.some((pos, i) => chips[i].stop !== pos)) {
       Q = Array.from({ length: N }, () => []);
       s.pos.forEach((pos, i) => { const cell = Number.isInteger(pos) && pos >= 0 && pos < N ? pos : 0; chips[i].stop = cell; Q[cell].push(chips[i]); });
       layout();
     }
+    if (Array.isArray(s.skipNext)) skipNext = s.skipNext.slice();
+    if (Array.isArray(s.reverseNext)) reverseNext = s.reverseNext.slice();
+    if (Array.isArray(s.jailFee)) jailFee = s.jailFee.slice();
+    if (Array.isArray(s.jailAttempts)) jailAttempts = s.jailAttempts.slice();
     cur = s.cur; turnNo = s.turnNo; renderPlayers();
     if (Modal_isOpen('sell') && sellPl) renderSellModal(sellPl);
   }
