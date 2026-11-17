@@ -42,6 +42,7 @@
       "owner": "nazay300-lgtm",
       "repo": "Nazay-s-monopoly",
       "releaseType": "release"
-    }
+    },
+    "artifactName": "Nazays-Monopoly-Setup-${version}.${ext}"
   }
 }
