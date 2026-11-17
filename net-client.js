@@ -19,10 +19,10 @@ const Net = (() => {
 
   function getClientId() {
     try {
-      let v = localStorage.getItem(LS_KEY);
+      let v = sessionStorage.getItem(LS_KEY);
       if (!v) {
         v = 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-        localStorage.setItem(LS_KEY, v);
+        sessionStorage.setItem(LS_KEY, v);
       }
       return v;
     } catch (e) {
@@ -54,6 +54,7 @@ const Net = (() => {
         const fail = m => {
           if (settled) return;
           settled = true;
+          clearTimeout(tmo);
           try { sock.close(); } catch (e) {}
           if (attempt <= retries) return setTimeout(doTry, baseDelay * attempt);
           reject(m);
@@ -106,6 +107,7 @@ const Net = (() => {
       const { url, joinMsg } = reconnectInfo;
       tryOpen(url, joinMsg, { retries: 0 })
         .then(() => {
+          if (!reconnecting) return;
           reconnecting = false;
           attempts = 0;
           emit('reconnected', {});
