@@ -21,10 +21,10 @@ const Sound = (() => {
     // --- Ход / фишка / кубики ---
     diceRoll:   'audio/c7df5ff40ccf1b6.mp3',
     chipStep:   'audio/free-sound-1674871939.mp3',
-    teleport:   'audio/teleport-opening-sound.mp3',
+    teleport:   'audio/polesdvig.mp3',
 
     // --- Деньги (покупка / аренда / служебные клетки) ---
-    money:      'audio/audiojoiner120623175716.mp3',
+    money:      'audio/klik-knopki--standart.mp3',
 
     // --- Клетки ---
     doctor:     'audio/rzhd-pribytie-poezda.mp3',
@@ -43,7 +43,7 @@ const Sound = (() => {
 
     // --- Ивенты: звёздный переход, рулетка, стрелка, попадание ---
     // Заменить, когда найдёшь подходящие звуки. Пока играют похожие.
-    eventStar:  'audio/teleport-opening-sound.mp3',           // «вжух» при вылете звезды
+    eventStar:  'audio/polesdvig.mp3',           // «вжух» при вылете звезды
     eventSpin:  'audio/klik-knopki--standart.mp3',            // тик рулетки
     eventArrow: 'audio/mechanisms-strikes-single-short-distant.mp3', // остановка стрелки на игроке
     eventHit:   'audio/shooting-a-short-gun.mp3'              // попадание по игроку
