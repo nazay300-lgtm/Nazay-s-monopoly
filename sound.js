@@ -50,10 +50,18 @@ const Sound = (() => {
   };
 
   const KEY = 'nm_sound_v1';
-  const state = Object.assign(
-    { music: 0.22, sfx: 1, muteMusic: false, muteSfx: false },
-    JSON.parse(localStorage.getItem(KEY) || '{}')
-  );
+  let preferences = {};
+  try {
+    const stored = JSON.parse(localStorage.getItem(KEY) || '{}');
+    if (stored && typeof stored === 'object' && !Array.isArray(stored)) preferences = stored;
+  } catch (_) {}
+  const state = Object.assign({ music: 0.22, sfx: 1, muteMusic: false, muteSfx: false }, preferences);
+  for (const key of ['music', 'sfx']) {
+    const value = Number(state[key]);
+    state[key] = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : (key === 'music' ? 0.22 : 1);
+  }
+  state.muteMusic = !!state.muteMusic;
+  state.muteSfx = !!state.muteSfx;
   const save = () => localStorage.setItem(KEY, JSON.stringify(state));
 
   const pool = {};
