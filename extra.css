@@ -1,6 +1,6 @@
 /* extra.css — финальные стили: логотип со звездой, вращающиеся кольца, новая заставка, комната ожидания (карты),
  * аукцион 2.0, профиль, мультиплеер-окна. Подключается ПОСЛЕ style.css и events.css. */
-@font-face{font-family:"LogoFont";src:url("assets/logo.woff2") format("woff2"),url("assets/logo.ttf") format("truetype");font-display:swap}
+@font-face{font-family:"LogoFont";src:url("assets/Fleur_De_Leah/FleurDeLeah-Regular.ttf") format("truetype");font-display:swap}
 :root{--logo:"LogoFont","Great Vibes","Pinyon Script","Segoe Script","Brush Script MT",cursive}
 
 /* ===== Логотип ===== */

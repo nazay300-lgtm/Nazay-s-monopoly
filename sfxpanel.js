@@ -31,7 +31,7 @@ const SfxPanel = (() => {
     stopCurrent();
     const file = FILES[i];
     const base = preloaded[i].cloneNode();
-    base.volume = Math.min(1, (Sound.state.sfx || 1) * (file.vol || 1));
+    base.volume = Sound.state.muteSfx ? 0 : Math.min(1, (Sound.state.sfx ?? 1) * (file.vol ?? 1));
     base.play().catch(() => {});
     current = base;
     base.addEventListener('ended', () => { if (current === base) current = null; });
@@ -51,7 +51,7 @@ const SfxPanel = (() => {
       if (idx >= 0) {
         const file = FILES[idx];
         const a = preloaded[idx].cloneNode();
-        a.volume = Math.min(1, (Sound.state.sfx || 1) * (file.vol || 1));
+        a.volume = Sound.state.muteSfx ? 0 : Math.min(1, (Sound.state.sfx ?? 1) * (file.vol ?? 1));
         a.play().catch(() => {});
         current = a;
         a.addEventListener('ended', () => { if (current === a) current = null; });

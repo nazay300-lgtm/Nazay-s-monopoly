@@ -1,0 +1,49 @@
+name: Publish Windows update
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    if: contains(github.event.head_commit.message, '[publish]')
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Validate JavaScript
+        shell: bash
+        run: |
+          for file in main.js preload.js net-server.js net-client.js script.js board.js events.js fx.js sound.js sfxpanel.js dev.js; do
+            node --check "$file"
+          done
+      - name: Install dependencies
+        run: npm ci
+      - name: Build Windows NSIS installer
+        run: npm run dist -- --publish never
+      - name: Verify update artifacts
+        shell: bash
+        run: |
+          test -s dist/latest.yml
+          test -s dist/Nazays-Monopoly-Setup-1.3.2.exe
+          test -s dist/Nazays-Monopoly-Setup-1.3.2.exe.blockmap
+      - name: Publish release for in-app updater
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create v1.3.2 \
+            dist/Nazays-Monopoly-Setup-1.3.2.exe \
+            dist/Nazays-Monopoly-Setup-1.3.2.exe.blockmap \
+            dist/latest.yml \
+            --target "$GITHUB_SHA" \
+            --title "Nazay's Monopoly v1.3.2" \
+            --notes "Тестовое обновление: восстановлены стили и анимации из 1.2 beta, сохранён аэрохоккей, исправлены ресурсы, звуки и часть ошибок мультиплеера. Требует проверки в Windows и сетевого тестирования." \
+            --latest

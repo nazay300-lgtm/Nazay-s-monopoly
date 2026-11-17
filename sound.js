@@ -21,10 +21,10 @@ const Sound = (() => {
     // --- Ход / фишка / кубики ---
     diceRoll:   'audio/c7df5ff40ccf1b6.mp3',
     chipStep:   'audio/free-sound-1674871939.mp3',
-    teleport:   'audio/teleport-opening-sound.mp3',
+    teleport:   'audio/polesdvig.mp3',
 
     // --- Деньги (покупка / аренда / служебные клетки) ---
-    money:      'audio/audiojoiner120623175716.mp3',
+    money:      'audio/klik-knopki--standart.mp3',
 
     // --- Клетки ---
     doctor:     'audio/rzhd-pribytie-poezda.mp3',
@@ -43,17 +43,25 @@ const Sound = (() => {
 
     // --- Ивенты: звёздный переход, рулетка, стрелка, попадание ---
     // Заменить, когда найдёшь подходящие звуки. Пока играют похожие.
-    eventStar:  'audio/teleport-opening-sound.mp3',           // «вжух» при вылете звезды
+    eventStar:  'audio/polesdvig.mp3',           // «вжух» при вылете звезды
     eventSpin:  'audio/klik-knopki--standart.mp3',            // тик рулетки
     eventArrow: 'audio/mechanisms-strikes-single-short-distant.mp3', // остановка стрелки на игроке
     eventHit:   'audio/shooting-a-short-gun.mp3'              // попадание по игроку
   };
 
   const KEY = 'nm_sound_v1';
-  const state = Object.assign(
-    { music: 0.22, sfx: 1, muteMusic: false, muteSfx: false },
-    JSON.parse(localStorage.getItem(KEY) || '{}')
-  );
+  let preferences = {};
+  try {
+    const stored = JSON.parse(localStorage.getItem(KEY) || '{}');
+    if (stored && typeof stored === 'object' && !Array.isArray(stored)) preferences = stored;
+  } catch (_) {}
+  const state = Object.assign({ music: 0.22, sfx: 1, muteMusic: false, muteSfx: false }, preferences);
+  for (const key of ['music', 'sfx']) {
+    const value = Number(state[key]);
+    state[key] = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : (key === 'music' ? 0.22 : 1);
+  }
+  state.muteMusic = !!state.muteMusic;
+  state.muteSfx = !!state.muteSfx;
   const save = () => localStorage.setItem(KEY, JSON.stringify(state));
 
   const pool = {};

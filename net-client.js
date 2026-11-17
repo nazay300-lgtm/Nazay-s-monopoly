@@ -19,10 +19,10 @@ const Net = (() => {
 
   function getClientId() {
     try {
-      let v = localStorage.getItem(LS_KEY);
+      let v = sessionStorage.getItem(LS_KEY);
       if (!v) {
         v = 'c_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-        localStorage.setItem(LS_KEY, v);
+        sessionStorage.setItem(LS_KEY, v);
       }
       return v;
     } catch (e) {
@@ -54,6 +54,7 @@ const Net = (() => {
         const fail = m => {
           if (settled) return;
           settled = true;
+          clearTimeout(tmo);
           try { sock.close(); } catch (e) {}
           if (attempt <= retries) return setTimeout(doTry, baseDelay * attempt);
           reject(m);
@@ -65,11 +66,12 @@ const Net = (() => {
         sock.onmessage = ev => {
           let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
           if (settled) return;
+          if (!m || typeof m !== 'object' || Array.isArray(m)) return;
           if (m.t === 'joined') {
             settled = true;
             clearTimeout(tmo);
             ws = sock; myId = m.id; host = !!m.host; started = true;
-            sock.onmessage = e2 => { let x; try { x = JSON.parse(e2.data); } catch (e) { return; } emit(x.t, x); };
+            sock.onmessage = e2 => { let x; try { x = JSON.parse(e2.data); } catch (e) { return; } if (x && typeof x === 'object' && !Array.isArray(x) && typeof x.t === 'string') emit(x.t, x); };
             sock.onclose = () => {
               if (ws !== sock) return;
               ws = null;
@@ -106,6 +108,7 @@ const Net = (() => {
       const { url, joinMsg } = reconnectInfo;
       tryOpen(url, joinMsg, { retries: 0 })
         .then(() => {
+          if (!reconnecting) return;
           reconnecting = false;
           attempts = 0;
           emit('reconnected', {});

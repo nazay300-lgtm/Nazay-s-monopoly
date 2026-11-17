@@ -97,7 +97,7 @@ const Board = (() => {
   function toHost(d) { if (MP && !IS_HOST) Net.game(d); }
   const seatsExcept = (...ex) => Game.players.map(p => p.id).filter(i => i !== ME && !ex.includes(i));
 
-  const STICKY = new Set(['res', 'duel:end', 'steal:show', 'traitor:show', 'ah:end']);
+  const STICKY = new Set(['res', 'duel:end', 'steal:show', 'traitor:show', 'ah:opening-result', 'ah:end']);
   let evL = {}, evLast = {};
   const evOn = (k, fn) => { (evL[k] = evL[k] || new Set()).add(fn); if (STICKY.has(k) && evLast[k]) { const v = evLast[k]; setTimeout(() => fn(v.d, v.from), 0); } return () => evL[k] && evL[k].delete(fn); };
   const evEmit = (k, d, from) => { if (STICKY.has(k)) evLast[k] = { d, from }; (evL[k] ? [...evL[k]] : []).forEach(fn => fn(d, from)); };
@@ -262,14 +262,27 @@ const Board = (() => {
 
   function snapshot() {
     return { p: Game.players.map(p => [p.money, p.alive ? 1 : 0]), o: owner.slice(), s: stars.slice(),
-      j: inJail.map(Boolean), l: loans.map(l => l ? l.turnsLeft : 0), cur, turnNo };
+      j: inJail.map(Boolean), l: loans.map(l => l ? { ...l } : null),
+      pos: chips.map(ch => ch.stop), skipNext: skipNext.slice(), reverseNext: reverseNext.slice(),
+      jailFee: jailFee.slice(), jailAttempts: jailAttempts.slice(), cur, turnNo };
   }
   function queueSync() { if (!MP || !IS_HOST || syncQueued) return; syncQueued = true; setTimeout(() => { syncQueued = false; bc({ v: 'state', ...snapshot() }); }, 30); }
   function applyState(s) {
     s.p.forEach((v, i) => { if (Game.players[i]) { Game.players[i].money = v[0]; Game.players[i].alive = !!v[1]; } });
     s.o.forEach((o, i) => { if (owner[i] !== o) setOwner(i, o); });
     s.s.forEach((n, i) => { if (stars[i] !== n) { stars[i] = n; renderStars(i); } });
-    inJail = s.j; loans = s.l.map(n => n ? { turnsLeft: n } : null); cur = s.cur; turnNo = s.turnNo; renderPlayers();
+    inJail = s.j; loans = s.l.map(n => n ? (typeof n === 'object' ? { ...n } : { amount: 750, turnsLeft: n }) : null);
+    if (Array.isArray(s.pos) && s.pos.length === chips.length &&
+      s.pos.some((pos, i) => chips[i].stop !== pos)) {
+      Q = Array.from({ length: N }, () => []);
+      s.pos.forEach((pos, i) => { const cell = Number.isInteger(pos) && pos >= 0 && pos < N ? pos : 0; chips[i].stop = cell; Q[cell].push(chips[i]); });
+      layout();
+    }
+    if (Array.isArray(s.skipNext)) skipNext = s.skipNext.slice();
+    if (Array.isArray(s.reverseNext)) reverseNext = s.reverseNext.slice();
+    if (Array.isArray(s.jailFee)) jailFee = s.jailFee.slice();
+    if (Array.isArray(s.jailAttempts)) jailAttempts = s.jailAttempts.slice();
+    cur = s.cur; turnNo = s.turnNo; renderPlayers();
     if (Modal_isOpen('sell') && sellPl) renderSellModal(sellPl);
   }
   function moneySound() { const t = performance.now(); if (t - msT < 250) return; msT = t; try { Sound.money(); } catch (e) {} }
@@ -1420,7 +1433,7 @@ const Board = (() => {
     const alive = Game.players.filter(p => p.alive);
     if (alive.length < 2) { console.warn('[Board] not enough alive players, skip event'); return; }
     const plan = FX.planEvent(alive, forced);
-    evReset(); bc({ v: 'evplan', plan });
+    evReset(); evLast['active:plan'] = { d: plan }; bc({ v: 'evplan', plan });
     await FX.runEvent({ plan, io: makeIO(), finish: hostFinish });
   }
   async function runEventClient(plan) { evReset(); await FX.runEvent({ plan, io: makeIO(), finish: clientFinish }); }
@@ -1610,7 +1623,8 @@ const Board = (() => {
     else vq = vq.then(() => doV(d)).catch(e => console.error('doV', e));
   }
   function hostMsg(d, seat) {
-    const p = Game.players[seat]; if (!p) return;
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return;
+    const p = Game.players[seat]; if (!p || !p.alive) return;
     switch (d.a) {
       case 'roll': if (seat === cur && !busy && p.alive && !p.bot) roll(); break;
       case 'askres': { const e = pend[d.id]; if (e && e.pid === seat) e.fn(d.val); break; }
@@ -1625,7 +1639,20 @@ const Board = (() => {
       case 'form': hostForm(seat, +d.to, String(d.id), d.form); break;
       case 'formres': hostFormRes(seat, String(d.id), !!d.accept); break;
       case 'sfx': SfxPanel.play(d.src); bc({ v: 'sfx', src: d.src }, seatsExcept(seat)); break;
-      case 'ev': evEmit(d.k, d, seat); break;
+      case 'ev':
+        if (typeof d.k === 'string' && ['duel:in','steal:pick','traitor:pick','ah:input'].includes(d.k)) {
+          const active = evLast['active:plan'];
+          if (active && active.d && active.d.parts.includes(seat)) {
+            if (d.k === 'duel:in') {
+              const side = active.d.parts[0] === seat ? 'p1' : 'p2';
+              if (d.side !== side) return;
+            }
+            if (d.k === 'steal:pick' && d.side !== (active.d.parts[0] === seat ? 'a' : 'b')) return;
+            if (d.k === 'traitor:pick' && active.d.parts[0] !== seat) return;
+            evEmit(d.k, d, seat);
+          }
+        }
+        break;
       case 'resync': {
         try { bc({ v: 'state', ...snapshot() }, [seat]); } catch (e) {}
         if (!busy && !over && cur === seat) bc({ v: 'turn', pid: cur, ms: TURN_MS }, [seat]);

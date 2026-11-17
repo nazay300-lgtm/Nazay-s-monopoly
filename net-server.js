@@ -7,7 +7,8 @@ try { WSS = require('ws').WebSocketServer; } catch (e) { WSS = null; }
 
 let wss = null, room = null, hb = null;
 const MAX_PLAYERS = 4;
-const GRACE_MS = 6000;
+const GRACE_MS = 15000;
+const MAX_MESSAGE_BYTES = 64 * 1024;
 
 const clean = n => (String(n || '').replace(/[^\p{L}\p{N} _\-.]/gu, '').trim().slice(0, 16)) || 'Игрок';
 const send = (c, m) => { try { if (c.ws.readyState === 1) c.ws.send(JSON.stringify(m)); } catch (e) {} };
@@ -15,7 +16,7 @@ const list = () => [...room.clients.values()].sort((a, b) => a.id - b.id);
 const bcast = m => list().forEach(c => send(c, m));
 const info = () => ({ t: 'room', phase: room.phase,
   players: list().map(c => ({ id: c.id, name: c.name, ready: c.ready, host: c.host })) });
-const allReady = () => room.clients.size >= 2 && list().every(c => c.ready);
+const allReady = () => room.clients.size >= 2 && list().every(c => c.ready && !c.disconnected);
 
 function start({ port, password }) {
   return new Promise(resolve => {
@@ -59,7 +60,10 @@ function onConn(ws) {
   ws.on('pong', () => { ws.dead = false; });
   let me = null;
   ws.on('message', raw => {
-    let m; try { m = JSON.parse(String(raw)); } catch (e) { return; }
+    let m;
+    if (raw.length > MAX_MESSAGE_BYTES) { ws.close(1009, 'Message too large'); return; }
+    try { m = JSON.parse(String(raw)); } catch (e) { return; }
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return;
     if (!room) return;
     if (!me) { me = join(ws, m); return; }
     if (me.ws !== ws) return;
@@ -78,9 +82,9 @@ function join(ws, m) {
   if (!m || m.t !== 'join') return fail('Ожидалось подключение');
 
   // 1) RECONNECT: клиент вернулся с тем же clientId
-  if (m.clientId) {
+  if (typeof m.clientId === 'string' && m.clientId.length <= 128) {
     for (const c of room.clients.values()) {
-      if (c.cid === m.clientId) {
+      if (c.cid === m.clientId && (c.host ? m.token === room.token : String(m.pw || '') === room.pw)) {
         if (c.ws && c.ws !== ws) { try { c.ws.close(); } catch (e) {} }
         c.ws = ws;
         if (c.graceTimer) { clearTimeout(c.graceTimer); c.graceTimer = null; }
@@ -104,7 +108,7 @@ function join(ws, m) {
   const base = clean(m.name), taken = new Set(list().map(c => c.name));
   let name = base, k = 2;
   while (taken.has(name)) name = `${base.slice(0, 13)} ${k++}`;
-  const c = { id: room.nextId++, cid: m.clientId || null, ws, name, ready: false, host: isHost, disconnected: false, graceTimer: null };
+  const c = { id: room.nextId++, cid: typeof m.clientId === 'string' && m.clientId.length <= 128 ? m.clientId : null, ws, name, ready: false, host: isHost, disconnected: false, graceTimer: null };
   room.clients.set(c.id, c);
   if (isHost) room.hostId = c.id;
   send(c, { t: 'joined', id: c.id, host: isHost });
